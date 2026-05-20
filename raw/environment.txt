@@ -1,0 +1,43 @@
+# udud benchmark - experimental environment
+captured_utc: 2026-05-20T03:15:36Z
+
+## hardware
+Architecture:                            x86_64
+CPU(s):                                  8
+Model name: Intel(R) Core(TM) i7-10610U CPU @ 1.80GHz
+Thread(s) per core: 2
+Core(s) per socket: 4
+Socket(s):                               1
+CPU max MHz: 1800.0000
+CPU min MHz: 400.0000
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust sgx bmi1 avx2 smep bmi2 erms invpcid mpx rdseed adx smap clflushopt intel_pt xsaveopt xsavec xgetbv1 xsaves dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp vnmi md_clear flush_l1d arch_capabilities
+L1d cache: 128 KiB (4 instances)
+L1i cache: 128 KiB (4 instances)
+L2 cache: 1 MiB (4 instances)
+L3 cache: 8 MiB (1 instance)
+mem_total: MemTotal:       16001048 kB
+
+## os / toolchain
+Linux 6.12.74+deb13+1-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.74-2 (2026-03-08) x86_64 GNU/Linux
+distro: Debian GNU/Linux 13 (trixie)
+cc: cc (Debian 14.2.0-19) 14.2.0
+python: Python 3.13.5
+cpu_governor: performance  (all 8 cores: performance)
+turbo_no_turbo(intel_pstate): 1  (1 = turbo disabled, clock pinned for low-variance timing)
+core_pinning: taskset -c 2 (single SUT core; benchmark harness)
+
+## measurement
+timer: runstat (fork + wait4 + getrusage; wall=CLOCK_MONOTONIC, peakRSS=ru_maxrss)
+protocol: prime page cache; 1 untimed warm-up; N=10 timed trials per (dataset,tool) cell (uddup N=3, O(n^2) baseline)
+per-run wall cap: 300 s (exceed => DNF, monotone skip of larger inputs)
+
+## tool versions (competitors + SUT)
+udud (SUT):  v14   (source header; single static binary, cc -O3 -march=native -flto, built 2026-05-20)
+uro:         1.0.2 (pip show uro)
+urldedupe:   1.0.4 (github vovkh/url-dedupe; no --version flag, version pinned by build commit)
+urless:      v2.7  (urless --version)
+uddup:       0.9.3 (pip show uddup)
+
+note: udud has no --version flag by design (zero-config, the version lives only in the
+source header). The earlier capture lines in this section were probe errors and have been
+replaced with the correct values obtained via pip show / --version / source header.

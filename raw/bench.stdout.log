@@ -1,0 +1,49 @@
+[12:50:01] dataset D_example_wb.25000  lines=25000 bytes=6967286
+[12:50:05]   udud done on D_example_wb.25000  (deterministic=1)
+[12:50:16]   uro done on D_example_wb.25000  (deterministic=1)
+[12:50:21]   urldedupe done on D_example_wb.25000  (deterministic=1)
+[12:50:34]   urless done on D_example_wb.25000  (deterministic=1)
+[12:50:46]   uddup done on D_example_wb.25000  (deterministic=1)
+[12:50:46] dataset D_example_wb.50000  lines=50000 bytes=12883729
+[12:50:52]   udud done on D_example_wb.50000  (deterministic=1)
+[12:51:15]   uro done on D_example_wb.50000  (deterministic=1)
+[12:51:23]   urldedupe done on D_example_wb.50000  (deterministic=1)
+[12:51:49]   urless done on D_example_wb.50000  (deterministic=1)
+[12:52:14]   uddup done on D_example_wb.50000  (deterministic=1)
+[12:52:14] dataset D_example_wb.100000  lines=100000 bytes=25932560
+[12:52:26]   udud done on D_example_wb.100000  (deterministic=1)
+[12:53:25]   uro done on D_example_wb.100000  (deterministic=1)
+[12:53:42]   urldedupe done on D_example_wb.100000  (deterministic=1)
+[12:56:34]   urless done on D_example_wb.100000  (deterministic=1)
+[12:56:34]   uddup SKIP (lines=100000 > UDDUP_MAX=50000; O(n^2) -> DNF)
+[12:56:34] dataset D_example_wb.200000  lines=200000 bytes=47257677
+[12:56:55]   udud done on D_example_wb.200000  (deterministic=1)
+[12:59:56]   uro done on D_example_wb.200000  (deterministic=1)
+[13:00:31]   urldedupe done on D_example_wb.200000  (deterministic=1)
+[13:10:59]   urless done on D_example_wb.200000  (deterministic=1)
+[13:10:59]   uddup SKIP (lines=200000 > UDDUP_MAX=50000; O(n^2) -> DNF)
+[13:10:59] dataset D_example_wb.400000  lines=400000 bytes=86239523
+[13:11:40]   udud done on D_example_wb.400000  (deterministic=1)
+[13:16:55]   uro done on D_example_wb.400000  (deterministic=1)
+[13:18:01]   urldedupe done on D_example_wb.400000  (deterministic=1)
+[13:42:33]   urless done on D_example_wb.400000  (deterministic=1)
+[13:42:33]   uddup SKIP (lines=400000 > UDDUP_MAX=50000; O(n^2) -> DNF)
+[13:42:33] dataset D_example_wb.full  lines=781398 bytes=132970916
+[13:44:14]   udud done on D_example_wb.full  (deterministic=1)
+[13:51:43]   uro done on D_example_wb.full  (deterministic=1)
+[13:53:27]   urldedupe done on D_example_wb.full  (deterministic=1)
+[14:24:43]   urless done on D_example_wb.full  (deterministic=1)
+[14:24:43]   uddup SKIP (lines=781398 > UDDUP_MAX=50000; O(n^2) -> DNF)
+[14:24:43] dataset D_vulnweb.full  lines=15185 bytes=1210645
+[14:24:44]   udud done on D_vulnweb.full  (deterministic=1)
+[14:24:49]   uro done on D_vulnweb.full  (deterministic=1)
+[14:24:51]   urldedupe done on D_vulnweb.full  (deterministic=1)
+[14:25:12]   urless done on D_vulnweb.full  (deterministic=1)
+[14:25:32]   uddup done on D_vulnweb.full  (deterministic=1)
+[14:25:32] dataset D_example_gau.full  lines=44943 bytes=5201628
+[14:25:40]   udud done on D_example_gau.full  (deterministic=1)
+[14:25:52]   uro done on D_example_gau.full  (deterministic=1)
+[14:25:57]   urldedupe done on D_example_gau.full  (deterministic=1)
+[14:26:09]   urless done on D_example_gau.full  (deterministic=1)
+[14:31:31]   uddup done on D_example_gau.full  (deterministic=1)
+[14:31:31] BENCH COMPLETE

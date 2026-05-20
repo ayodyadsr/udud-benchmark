@@ -1,0 +1,56 @@
+
+=== D_example_wb.25000 ===
+  udud       out=    487  wall=0.288s ±0.005 (CoV 2.3%)  rss=3.1MB  24.4MB/s  det=True
+  uro        out=    586  wall=1.005s ±0.019 (CoV 2.6%)  rss=17.4MB  7.0MB/s  det=True
+  urldedupe  out=   3376  wall=0.351s ±0.009 (CoV 3.7%)  rss=17.6MB  20.0MB/s  det=True
+  urless     out=    633  wall=1.198s ±0.010 (CoV 1.2%)  rss=30.1MB  5.9MB/s  det=True
+  uddup      out=  20599  wall=2.805s ±0.046 (CoV 0.7%)  rss=27.4MB  2.5MB/s  det=True
+
+=== D_example_wb.50000 ===
+  udud       out=    763  wall=0.533s ±0.037 (CoV 9.7%)  rss=3.4MB  24.4MB/s  det=True
+  uro        out=    821  wall=2.008s ±0.026 (CoV 1.8%)  rss=17.5MB  6.5MB/s  det=True
+  urldedupe  out=   4007  wall=0.666s ±0.006 (CoV 1.3%)  rss=28.9MB  19.5MB/s  det=True
+  urless     out=    871  wall=2.358s ±0.031 (CoV 1.9%)  rss=30.2MB  5.5MB/s  det=True
+  uddup      out=  45269  wall=5.891s ±0.168 (CoV 1.1%)  rss=40.3MB  2.2MB/s  det=True
+
+=== D_example_wb.100000 ===
+  udud       out=   1461  wall=1.026s ±0.009 (CoV 1.2%)  rss=3.6MB  25.5MB/s  det=True
+  uro        out=   1089  wall=5.408s ±0.035 (CoV 0.9%)  rss=17.6MB  4.8MB/s  det=True
+  urldedupe  out=   4980  wall=1.430s ±0.019 (CoV 1.8%)  rss=52.7MB  18.3MB/s  det=True
+  urless     out=   1561  wall=15.495s ±0.039 (CoV 0.3%)  rss=31.2MB  1.7MB/s  det=True
+  uddup      SKIP_SIZE
+
+=== D_example_wb.200000 ===
+  udud       out=   1482  wall=1.922s ±0.016 (CoV 1.1%)  rss=3.6MB  24.8MB/s  det=True
+  uro        out=   1096  wall=16.129s ±0.140 (CoV 1.2%)  rss=17.8MB  3.0MB/s  det=True
+  urldedupe  out=   5042  wall=2.973s ±0.014 (CoV 0.7%)  rss=99.0MB  16.0MB/s  det=True
+  urless     out=   1582  wall=57.325s ±0.517 (CoV 1.3%)  rss=31.2MB  0.8MB/s  det=True
+  uddup      SKIP_SIZE
+
+=== D_example_wb.400000 ===
+  udud       out=   1482  wall=3.695s ±0.046 (CoV 1.8%)  rss=3.6MB  23.6MB/s  det=True
+  uro        out=   1096  wall=28.515s ±0.137 (CoV 0.7%)  rss=17.7MB  3.1MB/s  det=True
+  urldedupe  out=   5045  wall=5.970s ±0.025 (CoV 0.6%)  rss=180.7MB  14.6MB/s  det=True
+  urless     out=   1582  wall=134.006s ±0.636 (CoV 0.7%)  rss=31.2MB  0.6MB/s  det=True
+  uddup      SKIP_SIZE
+
+=== D_example_wb.full ===
+  udud       out= 125837  wall=9.364s ±0.296 (CoV 4.4%)  rss=18.4MB  14.4MB/s  det=True
+  uro        out=  78470  wall=39.763s ±0.184 (CoV 0.7%)  rss=35.1MB  3.4MB/s  det=True
+  urldedupe  out= 293420  wall=9.412s ±0.062 (CoV 0.9%)  rss=335.9MB  14.3MB/s  det=True
+  urless     out=  74737  wall=172.161s ±1.024 (CoV 0.8%)  rss=45.3MB  0.8MB/s  det=True
+  uddup      SKIP_SIZE
+
+=== D_vulnweb.full ===
+  udud       out=   1409  wall=0.071s ±0.001 (CoV 1.0%)  rss=3.5MB  17.1MB/s  det=True
+  uro        out=   2362  wall=0.446s ±0.003 (CoV 1.0%)  rss=17.4MB  2.7MB/s  det=True
+  urldedupe  out=   4052  wall=0.081s ±0.001 (CoV 0.9%)  rss=7.2MB  15.0MB/s  det=True
+  urless     out=   3416  wall=1.929s ±0.018 (CoV 1.3%)  rss=30.5MB  0.6MB/s  det=True
+  uddup      out=  13684  wall=4.811s ±0.377 (CoV 3.2%)  rss=18.4MB  0.3MB/s  det=True
+
+=== D_example_gau.full ===
+  udud       out=   5261  wall=0.756s ±0.011 (CoV 2.1%)  rss=3.9MB  7.0MB/s  det=True
+  uro        out=   4048  wall=1.099s ±0.005 (CoV 0.7%)  rss=19.0MB  4.8MB/s  det=True
+  urldedupe  out=  41657  wall=0.341s ±0.004 (CoV 1.7%)  rss=22.0MB  15.5MB/s  det=True
+  urless     out=   5228  wall=1.370s ±0.027 (CoV 2.8%)  rss=31.2MB  3.9MB/s  det=True
+  uddup      out=  13096  wall=81.497s ±1.390 (CoV 0.7%)  rss=18.2MB  0.1MB/s  det=True

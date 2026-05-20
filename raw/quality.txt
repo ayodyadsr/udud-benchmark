@@ -1,0 +1,149 @@
+wrote raw/quality.csv raw/origbytes.csv raw/coverage.csv raw/quality.txt + raw/audit/*
+
+--- D_example_wb.full / udud ---
+  host      truth=   448 kept=   443 retained=98.884%   (raw-distinct 98.884%)  LOSS
+  js        truth= 57809 kept= 57375 retained=99.249%   (raw-distinct 99.069%)  LOSS
+  html      truth=  1342 kept=  1340 retained=99.851%   (raw-distinct 86.222%)  LOSS
+  srcdisc   truth=    28 kept=    28 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=    23 kept=    16 retained=69.565%   (raw-distinct 66.25%)  LOSS
+  param_ri  truth=    30 kept=    14 retained=46.667%   (raw-distinct 30.0%)  LOSS
+
+--- D_example_wb.full / uro ---
+  host      truth=   448 kept=   448 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth= 57809 kept=  6600 retained=11.417%   (raw-distinct 11.396%)  LOSS
+  html      truth=  1342 kept=  1289 retained=96.051%   (raw-distinct 96.074%)  LOSS
+  srcdisc   truth=    28 kept=    28 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=    23 kept=     0 retained=0.0%   (raw-distinct 0.0%)  LOSS
+  param_ri  truth=    30 kept=    21 retained=70.0%   (raw-distinct 70.0%)  LOSS
+
+--- D_example_wb.full / urldedupe ---
+  host      truth=   448 kept=   448 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth= 57809 kept= 57809 retained=100.0%   (raw-distinct 100.0%)  
+  html      truth=  1342 kept=  1342 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=    28 kept=    28 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=    23 kept=    23 retained=100.0%   (raw-distinct 100.0%)  
+  param_ri  truth=    30 kept=    30 retained=100.0%   (raw-distinct 100.0%)  
+
+--- D_example_wb.full / urless ---
+  host      truth=   448 kept=   448 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth= 57809 kept=  6644 retained=11.493%   (raw-distinct 11.469%)  LOSS
+  html      truth=  1342 kept=  1289 retained=96.051%   (raw-distinct 96.074%)  LOSS
+  srcdisc   truth=    28 kept=    28 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=    23 kept=     0 retained=0.0%   (raw-distinct 0.0%)  LOSS
+  param_ri  truth=    30 kept=    29 retained=96.667%   (raw-distinct 73.333%)  LOSS
+
+--- D_example_wb.full / uddup ---
+  no output (DNF/missing)
+
+--- D_vulnweb.full / udud ---
+  host      truth=   127 kept=   119 retained=93.701%   (raw-distinct 93.701%)  LOSS
+  js        truth=    49 kept=    48 retained=97.959%   (raw-distinct 97.959%)  LOSS
+  html      truth=    31 kept=    27 retained=87.097%   (raw-distinct 73.529%)  LOSS
+  srcdisc   truth=    14 kept=    14 retained=100.0%   (raw-distinct 82.353%)  
+  matrix    truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  param_ri  truth=     7 kept=     7 retained=100.0%   (raw-distinct 100.0%)  
+
+--- D_vulnweb.full / uro ---
+  host      truth=   127 kept=   127 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    49 kept=    16 retained=32.653%   (raw-distinct 32.653%)  LOSS
+  html      truth=    31 kept=    30 retained=96.774%   (raw-distinct 97.059%)  LOSS
+  srcdisc   truth=    14 kept=    14 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  param_ri  truth=     7 kept=     7 retained=100.0%   (raw-distinct 100.0%)  
+
+--- D_vulnweb.full / urldedupe ---
+  host      truth=   127 kept=   127 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    49 kept=    49 retained=100.0%   (raw-distinct 100.0%)  
+  html      truth=    31 kept=    31 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=    14 kept=    14 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  param_ri  truth=     7 kept=     7 retained=100.0%   (raw-distinct 100.0%)  
+
+--- D_vulnweb.full / urless ---
+  host      truth=   127 kept=   127 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    49 kept=    49 retained=100.0%   (raw-distinct 100.0%)  
+  html      truth=    31 kept=    31 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=    14 kept=    14 retained=100.0%   (raw-distinct 100.0%)  
+  matrix    truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  param_ri  truth=     7 kept=     7 retained=100.0%   (raw-distinct 100.0%)  
+
+--- D_vulnweb.full / uddup ---
+  host      truth=   127 kept=    67 retained=52.756%   (raw-distinct 52.756%)  LOSS
+  js        truth=    49 kept=     0 retained=0.0%   (raw-distinct 0.0%)  LOSS
+  html      truth=    31 kept=    31 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=    14 kept=     5 retained=35.714%   (raw-distinct 29.412%)  LOSS
+  matrix    truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  param_ri  truth=     7 kept=     7 retained=100.0%   (raw-distinct 100.0%)  
+
+--- D_example_gau.full / udud ---
+  host      truth=   125 kept=   125 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    56 kept=    56 retained=100.0%   (raw-distinct 100.0%)  
+  html      truth=   447 kept=   447 retained=100.0%   (raw-distinct 87.082%)  
+  srcdisc   truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  matrix    truth=     2 kept=     2 retained=100.0%   (raw-distinct 100.0%)  
+  param_ri  truth=     0 kept=     0 retained=%   (raw-distinct %)  
+
+--- D_example_gau.full / uro ---
+  host      truth=   125 kept=   125 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    56 kept=    55 retained=98.214%   (raw-distinct 98.214%)  LOSS
+  html      truth=   447 kept=   447 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  matrix    truth=     2 kept=     0 retained=0.0%   (raw-distinct 0.0%)  LOSS
+  param_ri  truth=     0 kept=     0 retained=%   (raw-distinct %)  
+
+--- D_example_gau.full / urldedupe ---
+  host      truth=   125 kept=   125 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    56 kept=    56 retained=100.0%   (raw-distinct 100.0%)  
+  html      truth=   447 kept=   447 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  matrix    truth=     2 kept=     2 retained=100.0%   (raw-distinct 100.0%)  
+  param_ri  truth=     0 kept=     0 retained=%   (raw-distinct %)  
+
+--- D_example_gau.full / urless ---
+  host      truth=   125 kept=   125 retained=100.0%   (raw-distinct 100.0%)  
+  js        truth=    56 kept=    55 retained=98.214%   (raw-distinct 98.214%)  LOSS
+  html      truth=   447 kept=   447 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  matrix    truth=     2 kept=     0 retained=0.0%   (raw-distinct 0.0%)  LOSS
+  param_ri  truth=     0 kept=     0 retained=%   (raw-distinct %)  
+
+--- D_example_gau.full / uddup ---
+  host      truth=   125 kept=   119 retained=95.2%   (raw-distinct 95.2%)  LOSS
+  js        truth=    56 kept=     0 retained=0.0%   (raw-distinct 0.0%)  LOSS
+  html      truth=   447 kept=   447 retained=100.0%   (raw-distinct 100.0%)  
+  srcdisc   truth=     0 kept=     0 retained=%   (raw-distinct %)  
+  matrix    truth=     2 kept=     2 retained=100.0%   (raw-distinct 29.63%)  
+  param_ri  truth=     0 kept=     0 retained=%   (raw-distinct %)  
+
+=== endpoint coverage (descriptive, not a loss metric) ===
+  D_example_wb.full  udud       in= 280279 out= 122798 cov=43.813%
+  D_example_wb.full  uro        in= 280279 out=  77118 cov=27.487%
+  D_example_wb.full  urldedupe  in= 280279 out= 280279 cov=100.0%
+  D_example_wb.full  urless     in= 280279 out=  73153 cov=26.072%
+  D_vulnweb.full     udud       in=   2653 out=   1290 cov=48.549%
+  D_vulnweb.full     uro        in=   2653 out=   2040 cov=76.856%
+  D_vulnweb.full     urldedupe  in=   2653 out=   2653 cov=100.0%
+  D_vulnweb.full     urless     in=   2653 out=   2219 cov=83.603%
+  D_vulnweb.full     uddup      in=   2653 out=   1573 cov=59.254%
+  D_example_gau.full udud       in=  41198 out=   4880 cov=11.845%
+  D_example_gau.full uro        in=  41198 out=   3970 cov=9.632%
+  D_example_gau.full urldedupe  in=  41198 out=  41198 cov=100.0%
+  D_example_gau.full urless     in=  41198 out=   5082 cov=12.331%
+  D_example_gau.full uddup      in=  41198 out=  12037 cov=29.217%
+
+=== emits original URL bytes ===
+  D_example_wb.full  udud       verbatim=75.387%  emits_original=no
+  D_example_wb.full  uro        verbatim=90.655%  emits_original=no
+  D_example_wb.full  urldedupe  verbatim=100.0%  emits_original=yes
+  D_example_wb.full  urless     verbatim=78.477%  emits_original=no
+  D_vulnweb.full     udud       verbatim=47.977%  emits_original=no
+  D_vulnweb.full     uro        verbatim=88.061%  emits_original=no
+  D_vulnweb.full     urldedupe  verbatim=100.0%  emits_original=yes
+  D_vulnweb.full     urless     verbatim=71.048%  emits_original=no
+  D_vulnweb.full     uddup      verbatim=99.635%  emits_original=no
+  D_example_gau.full udud       verbatim=42.615%  emits_original=no
+  D_example_gau.full uro        verbatim=94.071%  emits_original=no
+  D_example_gau.full urldedupe  verbatim=100.0%  emits_original=yes
+  D_example_gau.full urless     verbatim=40.13%  emits_original=no
+  D_example_gau.full uddup      verbatim=99.702%  emits_original=no
+

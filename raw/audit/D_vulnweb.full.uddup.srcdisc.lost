@@ -1,0 +1,9 @@
+http://test.vulnweb.com:80/admin/create.sql
+http://testphp.vulnweb.com:80/admin/create.sql
+http://testphp.vulnweb.com:80/AJAX/htaccess.conf
+http://testphp.vulnweb.com:80/CVS/Entries.Log
+http://testphp.vulnweb.com/index.zip
+http://testphp.vulnweb.com:80/pictures/wp-config.bak
+http://testphp.vulnweb.com:80/pictures/WS_FTP.LOG
+http://testphp.vulnweb.com:80/usr/local/etc/php/extensions.ini
+http://www.hotelresidenceitalia.com.vulnweb.com:80/admin/create.sql

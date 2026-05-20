@@ -1,0 +1,15 @@
+dataset,tool,in_endpoints,out_endpoints,endpoint_coverage_pct
+D_example_wb.full,udud,280279,122798,43.813
+D_example_wb.full,uro,280279,77118,27.487
+D_example_wb.full,urldedupe,280279,280279,100.0
+D_example_wb.full,urless,280279,73153,26.072
+D_vulnweb.full,udud,2653,1290,48.549
+D_vulnweb.full,uro,2653,2040,76.856
+D_vulnweb.full,urldedupe,2653,2653,100.0
+D_vulnweb.full,urless,2653,2219,83.603
+D_vulnweb.full,uddup,2653,1573,59.254
+D_example_gau.full,udud,41198,4880,11.845
+D_example_gau.full,uro,41198,3970,9.632
+D_example_gau.full,urldedupe,41198,41198,100.0
+D_example_gau.full,urless,41198,5082,12.331
+D_example_gau.full,uddup,41198,12037,29.217
