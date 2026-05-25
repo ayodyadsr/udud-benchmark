@@ -1,7 +1,7 @@
 tool,klass,total_groups,surviving_groups,destroyed_groups,kept_urls,recall,over_keep_ratio,lossless
 udud,CACHE_BUST,1,1,0,1,1.0000,1.000,yes
 udud,GENUINE_DISTINCT,190,181,9,181,0.9526,1.000,no
-udud,HEX_HASH,1,1,0,1,1.0000,1.000,yes
+udud,HEX_HASH,1,1,0,4984,1.0000,4984.000,yes
 udud,JSESSIONID,1,1,0,4999,1.0000,4999.000,yes
 udud,LFI_PARAM,1,1,0,1,1.0000,1.000,yes
 udud,NUMERIC_ID,1,1,0,1,1.0000,1.000,yes
@@ -10,7 +10,7 @@ udud,PARAM_ORDER,1,1,0,1,1.0000,1.000,yes
 udud,SRCDISC,20,20,0,20,1.0000,1.000,yes
 udud,TITLE_SLUG,1,1,0,1,1.0000,1.000,yes
 udud,TRAILING_SLASH,100,100,0,100,1.0000,1.000,yes
-udud,UUID,1,1,0,1,1.0000,1.000,yes
+udud,UUID,1,1,0,4977,1.0000,4977.000,yes
 uro,CACHE_BUST,1,1,0,1,1.0000,1.000,yes
 uro,GENUINE_DISTINCT,190,184,6,184,0.9684,1.000,no
 uro,HEX_HASH,1,1,0,5000,1.0000,5000.000,yes

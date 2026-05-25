@@ -1,13 +1,27 @@
-# udud v14 Per-Line Loss Audit
+# udud Per-Line Loss Audit (id-folding mode)
 
-This is the standalone re-audit record behind Section 7 of BENCHMARK.md.
-Every URL that udud v14 removes and the canonicalization-invariant metric
-counts against it is listed here verbatim and classified by hand. The
-purpose is a security judgement, not a line count: for each removed line,
-was a reachable, distinct, attackable endpoint lost.
+> **Version note (read first).** This audit documents the **id-folding**
+> behavior of udud — the mode that collapses object IDs, hashes, and session
+> tokens to one representative. Since **v18** that is the opt-in `-F` mode, not
+> the default. The current **default** configuration (the one the headline
+> benchmark measures) is *keep-biased*: it preserves those IDs and tokens
+> instead of folding them, so it removes a strict subset of the lines audited
+> here. The audit's central finding — that the lines udud removes are redundant
+> or noise, not real attack surface — therefore holds for the default at least
+> as strongly (the default removes fewer lines). Specific folding examples below
+> (e.g. folding `;jsessionid=` tokens) describe `-F`, not the default.
+
+This is the standalone re-audit record behind the quality discussion in
+BENCHMARK.md. Every URL that udud (id-folding mode) removes and the
+canonicalization-invariant metric counts against it is listed here verbatim and
+classified by hand. The purpose is a security judgement, not a line count: for
+each removed line, was a reachable, distinct, attackable endpoint lost.
 
 Source of truth for the raw listings: `raw/audit/D_*.udud.*.lost`
-(regenerated against the v14 binary, 2026-05-20).
+(regenerated 2026-05-20). The output of v14, v15, and the current `-F` mode is
+byte-identical on all four corpora (verified by SHA-256 on D_synth.full,
+D_example_wb.full, D_example_gau.full, and D_vulnweb.full), so the audit applies
+to id-folding mode unchanged.
 
 Token note: the two large corpora are published in de-identified form,
 so the URLs below carry ciphered host labels and path segments

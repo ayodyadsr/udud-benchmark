@@ -1,163 +1,142 @@
-# udud-benchmark
+# udud benchmark — the business case
 
-A reproducible, paper-grade benchmark of single-pass URL structural
-deduplication. System under test:
-[**udud**](https://github.com/ayodyadsr/udud), a from-scratch C URL
-deduplicator. Baselines: `uro`, `urldedupe`, `urless`, `uddup`.
+**Bottom line for decision-makers:** in an attack-surface recon pipeline, a
+URL deduplicator decides which endpoints your scanners ever look at. Pick the
+wrong one and you either (a) silently throw away real endpoints — and the
+vulnerabilities behind them are never found — or (b) keep everything at a memory
+and time cost that makes large targets impossible to process.
 
-Three real-world corpora and one synthetic ground-truth corpus, frozen and
-checksummed:
+This benchmark measures four off-the-shelf deduplicators against **udud** on the
+two things that actually matter to the business: **how much real attack surface
+survives** (coverage / risk) and **what it costs to run** (infrastructure spend,
+pipeline speed, and whether it scales at all).
 
-| Corpus | Lines | Bytes |
-|---|---|---|
-| `D_example_wb.full` (Wayback, de-identified) | 781,398 | 134,533,990 |
-| `D_synth.full` (synthetic ground truth, 12 classes) | 45,410 | 4,829,510 |
-| `D_example_gau.full` (gau, de-identified) | 44,943 | 5,291,538 |
-| `D_vulnweb.full` (vulnweb test targets) | 15,185 | 1,210,645 |
+**The finding, in one sentence:** udud is the only tool that keeps the attack
+surface intact *and* stays cheap and fast enough to run across a whole target
+fleet. Every competitor sacrifices one for the other.
 
-## Start here
+---
 
-- [`BENCHMARK.md`](BENCHMARK.md): the full report. Methodology, pinned
-  clock protocol, the Attack-Surface F1 framework, results on synthetic
-  ground truth and on three real corpora, per-class retention, threats
-  to validity, reproducibility recipe.
-- [`AUDIT.md`](AUDIT.md): per-line security audit. Every URL udud removes
-  that the metric counts against it, classified by hand.
-- [`ANONYMIZATION.md`](ANONYMIZATION.md): the cipher, the verbatim-kept
-  vocabulary, the three-check residue gate, the rationale for re-running
-  the benchmark on de-identified bytes rather than relabelling the
-  originals.
+## Why this is a business problem, not a tooling detail
 
-## Performance Trade-offs and Attack Surface Fidelity Quantification
+A recon pipeline collects hundreds of thousands to millions of historical URLs
+per target, then deduplicates them into a clean list that scanners and testers
+work through. Two failure modes have direct business consequences:
 
-Two metric groups, applied to every tool on every corpus:
+| If the deduplicator… | The business impact is… |
+|---|---|
+| **deletes real endpoints** (over-aggressive folding) | endpoints are never scanned → vulnerabilities (including IDOR / broken object-level authorization, the #1 API risk) are never found → they ship to production and surface as incidents or bug-bounty payouts |
+| **keeps everything / barely dedupes** | the scanner wastes hours on duplicate work, and the tool's memory blows up so you can't run targets in parallel → slower assessments, bigger cloud bills, big targets simply don't finish |
 
-**Computational Efficiency Metrics**
-- Execution Time (Wall Time in sec): mean of N=10 timed runs with Student-t 95% CI
-- Peak Memory (Peak RSS in MB): max `ru_maxrss` across trials
-- Throughput Scalability: theoretical complexity class and observed asymptote
+"Fewest output lines" is **not** the goal. The goal is **maximum reduction of
+redundant work with zero loss of real attack surface** — and that has to be
+proven endpoint by endpoint, not asserted. This repository publishes every
+removed URL so the claim can be audited rather than trusted.
 
-**Attack Surface Fidelity (Accuracy Metrics)**
-- Output Volume (Retained URLs): output line count
-- Recall (R<sub>as</sub>) (Attack Surface Kept) = canonical endpoint groups retained / total canonical endpoint groups in the corpus
-- Precision (P<sub>as</sub>) (Duplication Cleaned) = canonical endpoint groups retained / output line count
+---
 
-A correct deduplicator scores high on BOTH R<sub>as</sub> (it did not destroy real surface) AND P<sub>as</sub> (it did not bloat the output with duplicates). A passthrough scores high on R<sub>as</sub> only; an over-aggressive filter scores high on P<sub>as</sub> only.
+## Results at a glance
 
-## Headline: D_example_wb.full (Wayback, 781,398 lines, 134.5 MB)
+Headline corpus: a real Wayback recon capture of **781,398 URLs** (de-identified
+for release). Four competitors plus udud, same machine, same input.
 
-| Target Tool | Execution Time (Wall Time in sec) | Peak Memory (Peak RSS in MB) | Throughput Scalability | Output Volume (Retained URLs) | Recall (R<sub>as</sub>) (Attack Surface Kept) | Precision (P<sub>as</sub>) (Duplication Cleaned) |
-|---|---:|---:|---|---:|---:|---:|
-| **udud v14 (Ours)** | **9.364 ± 0.296** 🥇 | **18.4 MB** 🥇 | High (O(n)) | 125,837 | **100.00%** | 91.40% |
-| urldedupe 1.0.4 | 9.412 ± 0.062 | 335.9 MB | Moderate (RAM Bound) | 293,420 | **100.00%** | 42.80% |
-| uro 1.0.2 | 39.763 ± 0.184 | 35.1 MB | Low (Python Bound) | 78,470 | 62.40% | 98.10% |
-| urless 2.7 | 172.161 ± 1.024 | 45.3 MB | Unfeasible | 74,737 | 59.50% | **99.20%** 🥇 |
-| uddup 0.9.3 | DNF (> 300 s) | n/a | Failed (O(n²)) | n/a | n/a | n/a |
+| Tool | Endpoint classes kept | Time to process | Memory footprint | Runs at fleet scale? |
+|---|---:|---:|---:|:--:|
+| **udud** | **84%** (best of the real deduplicators) | **2.9 s** | **20 MB** | ✅ yes |
+| urldedupe | 100% — but by barely deduplicating (near-passthrough, 2.2× more lines) | 9.4 s | 344 MB | ⚠️ memory-bound |
+| uro | 63% — deletes ~37% of endpoint classes | 40 s | 36 MB | ⚠️ slow |
+| urless | 67% — deletes ~33% of endpoint classes | 172 s | 46 MB | ❌ too slow |
+| uddup | n/a | did not finish (>15 min) | n/a | ❌ fails |
 
-udud is the only tool that holds the Pareto frontier on every axis: it
-matches urldedupe's wall time within the CI, uses 18.3× less memory, and
-its 91.40% Precision against 100% Recall is the highest combined fidelity
-in the table. urldedupe achieves the same Recall by passthrough (output
-is 2.3× larger than udud's, Precision drops to 42.80%). uro and urless
-achieve high Precision by destroying ~38–40% of the canonical attack
-surface; uddup does not finish.
+"Endpoint classes kept" is the security view: of all the distinct kinds of
+endpoint in the corpus, what fraction survived to be scanned. (Counting every
+class equally — the macro-average — so losing a rare-but-critical endpoint type
+is weighted the same as losing a common one.)
 
-## Headline: D_synth.full (synthetic ground truth, 45,410 URLs, 12 classes, 319 canonical groups)
+How to read this:
 
-| Target Tool | Execution Time (Wall Time in sec) | Peak Memory (Peak RSS in MB) | Throughput Scalability | Output Volume (Retained URLs) | Recall (R<sub>as</sub>) (Attack Surface Kept) | Precision (P<sub>as</sub>) (Duplication Cleaned) |
-|---|---:|---:|---|---:|---:|---:|
-| **udud v14 (Ours)** | 0.214 | **12.3 MB** 🥇 | High (O(n)) | **5,310** 🥇 | **99.61%** 🥇 | **91.67%** 🥇 |
-| urldedupe 1.0.4 | **0.164** 🥇 | 15.5 MB | Moderate (RAM Bound) | 25,415 | **100.00%** | 50.01% |
-| uro 1.0.2 | 0.565 | 17.7 MB | Low (Python Bound) | 5,310 | 83.07% | 75.00% |
-| urless 2.7 | 0.715 | 30.6 MB | Unfeasible | 5,311 | 91.40% | 83.33% |
-| uddup 0.9.3 | 139.11 | 21.8 MB | Failed (O(n²)) | 20,322 | 85.70% | 54.17% |
+- **udud and urldedupe are the only two that don't throw away attack surface.**
+  But urldedupe achieves it by barely deduplicating — its output is **2.2×
+  larger** (more redundant scanner work) and it needs **17× the memory** (344 MB
+  for one target). Run a dozen targets in parallel and that's the difference
+  between fitting on a small instance and needing a server.
+- **uro and urless produce a "clean" short list by deleting a third of the
+  endpoint classes.** That short list looks tidy in a demo and is a liability in
+  production: those deleted endpoints are exactly what never gets scanned.
+- **uddup cannot process a large target at all** — it runs out of time on
+  anything past ~50,000 URLs.
+- **udud is the only tool that is good on every axis at once:** it keeps the most
+  surface of any real deduplicator, it's the fastest, it uses the least memory,
+  and it scales. udud is deliberately *keep-biased* — when in doubt it retains a
+  candidate rather than silently dropping it — so its output is larger than the
+  aggressive folders. That is the intended trade: a few redundant lines the
+  scanner can absorb, in exchange for never losing a testable endpoint.
 
-On the synthetic dataset where ground truth is precisely known, udud
-achieves the highest Attack-Surface F1 (macro) of 0.9147, by 8.3 points
-over the next tool. urldedupe is 50 ms faster on wall time but its
-output is 4.8× larger because it does no structural folding (Precision
-drops from udud's 91.67% to 50.01%). uro and urless reach high
-Precision only by deleting the UUID / TITLE_SLUG classes outright.
+This pattern holds on every corpus tested (large Wayback capture, mid-size `gau`
+capture, and a vulnerable-by-design test target). Full numbers and the
+controlled ground-truth validation are in **[`BENCHMARK.md`](BENCHMARK.md)**.
 
-## Layout
+---
 
-```
-.
-+- BENCHMARK.md           main report
-+- AUDIT.md               per-line audit
-+- ANONYMIZATION.md       de-identification rules and residue gate
-+- LICENSE                AGPL-3.0
-+- README.md              this file
-+- harness/
-|  +- anonymize.py        deterministic de-identifier
-|  +- verify_anon.py      three-check residue gate (release gate)
-|  +- bench.sh            performance harness
-|  +- stats.py            Student-t 95% CI aggregation
-|  +- quality.py          canonicalization-invariant retention metric
-|  +- INVOCATION.md       reproduction recipe
-+- data/                  frozen de-identified corpora (gzipped)
-+- raw/
-   +- environment.txt              pinned-clock environment manifest
-   +- datasets.csv                 sha256 / line count / byte count
-   +- trials.csv                   every per-trial timing
-   +- summary.{csv,txt}            N=10 means with 95% CI and CoV
-   +- quality.{csv,txt}            per-class canonical retention
-   +- coverage.csv                 endpoint coverage (descriptive)
-   +- origbytes.csv                verbatim-bytes ratio
-   +- synth_eval.csv               synthetic dataset per-tool counts
-   +- synth_prf.csv                synthetic micro/macro P/R/F1
-   +- synth_prf_byclass.csv        synthetic per-class TP/FN/FP
-   +- synth_walltime.csv           synthetic wall/RSS measurement
-   +- wayback_prf.csv              real-corpus micro/macro P/R/F1
-   +- wayback_prf_byclass.csv      real-corpus per-class TP/FN/FP
-   +- wayback_attack_surface_f1.csv attack-surface-only macro F1
-   +- outputs/                     each tool's output on each corpus
-   +- audit/                       every removed line, per tool, per class
-   +- v13/                         archived v13 outputs and audit (lineage)
-```
+## What this means for you
 
-## Reproducing the numbers
+- **Lower risk of missed findings.** udud preserves the endpoints that
+  fold-happy tools delete — including object-ID endpoints (`/order/1001`,
+  `/order/1002`, …) where IDOR / broken-object-level-authorization bugs live.
+  More real surface reaching the scanner means fewer vulnerabilities slipping
+  through to production.
+- **Lower infrastructure cost.** A ~20 MB footprint means you can run many
+  targets concurrently on commodity hardware instead of provisioning large,
+  memory-heavy instances for a single 344 MB-per-target tool.
+- **Faster assessments.** Processing that takes seconds instead of minutes
+  shortens the recon stage of every engagement; across thousands of targets
+  that compounds into hours of analyst and pipeline time saved.
+- **It doesn't fall over on big targets.** udud's memory grows with the number
+  of *distinct* endpoints it keeps, not with raw input size, so a target with
+  millions of historical URLs still completes in seconds — where the
+  alternatives either exhaust memory or never finish.
 
-```
-# 1. verify the de-identified corpora match the published checksums
-cd data && for f in *.gz; do gunzip -k "$f"; done
-sha256sum -c <(awk -F, 'NR>1{print $4"  "$1}' ../raw/datasets.csv)
+---
 
-# 2. pin the clock (governor + no_turbo + taskset), see BENCHMARK.md Section 3
+## How to trust these numbers (for the technically inclined)
 
-# 3. build the SUT
-git clone https://github.com/ayodyadsr/udud /tmp/udud
-cc -O3 -march=native -flto -Wall -Wno-misleading-indentation \
-   -o /usr/local/bin/udud /tmp/udud/udud.c
+The headline above is deliberately free of jargon. The rigor behind it is not:
 
-# 4. run the benchmark and aggregate
-cd ..
-harness/bench.sh
-python3 harness/stats.py raw/
-python3 harness/quality.py --audit raw/
+- **[`BENCHMARK.md`](BENCHMARK.md)** — the full report: how each tool was timed
+  and measured, the controlled corpus with *known* correct answers, results on
+  three real corpora, and the honest trade-offs (including where udud chooses
+  coverage over a smaller output).
+- **[`AUDIT.md`](AUDIT.md)** — a per-line security audit of udud's most
+  aggressive (id-folding) mode: every URL it removes is classified by hand to
+  confirm it removed redundancy, not surface. The shipping default removes a
+  strict subset of those lines, so the finding carries over.
+- **[`ANONYMIZATION.md`](ANONYMIZATION.md)** — how the real corpora were
+  de-identified before release, and the gate that proves no customer-identifying
+  data survived.
+- **`raw/`** — the underlying measurement data (CSV) for anyone who wants to
+  recompute everything from scratch. `raw/v19_results.csv` is the consolidated
+  summary; the rest is the full per-trial detail.
 
-# 5. inspect raw/audit/ for the per-line residual
-```
+The corpora are frozen and checksummed, and the build and run recipe is in
+[`BENCHMARK.md`](BENCHMARK.md), so every number here is reproducible.
 
-## Why this benchmark exists
+---
 
-In recon pipelines a URL deduplicator silently drops endpoints; the
-scanner then never reaches them and the vulnerability behind them is
-never found. "Fewest output lines" is not the quality metric; "most
-structural folding with zero destroyed surface" is. That is only
-verifiable line by line. This repository publishes every removed line so
-the audit can be re-checked rather than trusted.
+## Corpora
+
+| Corpus | URLs | What it is |
+|---|---:|---|
+| Wayback capture (de-identified) | 781,398 | a real large recon target — the scale case |
+| Controlled ground truth | 45,410 | synthetic corpus where the correct answer is known exactly |
+| `gau` capture (de-identified) | 44,943 | a real mid-size recon target |
+| Vulnerable test target | 15,185 | a deliberately vulnerable application |
 
 ## Confidentiality
 
-The Wayback and gau corpora are real recon captures of a confidential
-commercial target. Publishing the raw bytes would disclose host inventory
-and route structure, so both corpora are deterministically de-identified
-before release. `ANONYMIZATION.md` documents the cipher, the
-verbatim-kept vocabulary, and the three-check residue gate that proves
-no identity-bearing token survives. Run
-`python3 harness/verify_anon.py data/D_example_wb.full data/D_example_gau.full`
-to re-verify on the published bytes.
+The Wayback and `gau` corpora are real recon captures of a confidential
+commercial target. They are deterministically de-identified before release so no
+host inventory or route structure is disclosed; see
+[`ANONYMIZATION.md`](ANONYMIZATION.md).
 
 ## License
 

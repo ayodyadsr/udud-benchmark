@@ -1,0 +1,24 @@
+corpus,input_lines,tool,output_lines,wall_s,peak_rss_mb,surface_recall_macro,note
+D_example_wb.full,781398,udud,131633,2.9,20.4,0.835,udud v19 default
+D_example_wb.full,781398,urldedupe,293420,9.41,344.0,1.000,near-passthrough
+D_example_wb.full,781398,uro,78470,39.76,36.0,0.629,
+D_example_wb.full,781398,urless,74737,172.16,46.4,0.674,
+D_example_wb.full,781398,uddup,,,,, DNF >900s O(n^2)
+D_example_gau.full,44943,udud,5244,0.14,4.2,0.969,udud v19 default
+D_example_gau.full,44943,urldedupe,41657,0.34,22.6,1.000,near-passthrough
+D_example_gau.full,44943,uro,4048,1.10,19.5,0.746,
+D_example_gau.full,44943,urless,5228,1.37,32.0,0.746,
+D_example_gau.full,44943,uddup,13096,81.50,18.7,0.738,
+D_vulnweb.full,15185,udud,1410,0.03,3.4,0.945,udud v19 default
+D_vulnweb.full,15185,urldedupe,4052,0.08,7.4,1.000,near-passthrough
+D_vulnweb.full,15185,uro,2362,0.45,17.9,0.859,
+D_vulnweb.full,15185,urless,3416,1.93,31.2,1.000,
+D_vulnweb.full,15185,uddup,13684,4.81,18.9,0.577,
+D_synth.full,45410,udud,15269,0.08,4.7,0.9961,controlled ground truth; keeps every class
+D_synth.full,45410,urldedupe,25415,0.16,15.5,1.000,near-passthrough
+D_synth.full,45410,uro,5310,0.56,17.7,0.831,
+D_synth.full,45410,urless,5311,0.72,30.6,0.914,
+D_synth.full,45410,uddup,20322,139.11,21.8,0.857,
+# udud v19 default peak memory scaling (Wayback slices): 25k=3.0MB 50k=3.4MB 100k=3.7MB 200k=3.8MB 400k=3.5MB 781k=20.4MB
+# competitor numbers from raw/summary.csv (N=10, Student-t 95% CI); tools unchanged across udud versions
+# surface_recall_macro from raw/wayback_prf.csv (real corpora) and raw/synth_prf.csv (synth)

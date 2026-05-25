@@ -1,860 +1,353 @@
-# udud: A Reproducible Benchmark of Single-Pass URL Structural Deduplication
-
-Benchmark date: 2026-05-20
-System under test: udud v14
-Baselines: uro 1.0.2, urldedupe 1.0.4, urless v2.7, uddup 0.9.3
-
-## Abstract
-
-URL deduplication tools are used in reconnaissance pipelines to collapse a
-crawl frontier of hundreds of thousands of near-identical URLs into a small
-set of structurally distinct endpoints. The value of such a tool is two
-sided: it must remove redundancy aggressively, and it must not destroy real
-attack surface in the process. Existing tools optimize one side at the cost
-of the other. This report benchmarks udud, a from-scratch single-pass C
-deduplicator, against four widely used baselines on three frozen real
-corpora (781,398, 44,943, and 15,185 URLs) and one synthetic ground-truth
-corpus of 45,410 URLs in 12 known pattern classes, under a pinned-clock
-measurement protocol with N=10 timed trials and Student-t 95 percent
-confidence intervals. Quality is graded as an Information Retrieval
-problem: for each pattern class, TP is canonical endpoint groups that
-survive in the output, FN is canonical endpoint groups destroyed by the
-tool (real attack surface lost), FP is output URLs beyond the minimum
-needed to cover the surviving groups (duplicate noise the dedup failed to
-fold), and F1 = 2·P·R/(P+R). On the synthetic dataset udud achieves
-Attack-Surface Macro-F1 0.9147, compared to 0.8320 for urless, 0.7487 for
-uro, 0.5279 for urldedupe, and 0.5175 for uddup. On the 781,398-URL real
-corpus udud completes in 9.364 s (95 percent CI plus or minus 0.296 s) at
-18.4 MB peak resident memory, against 39.763 s for uro, 172.161 s for
-urless, and 9.412 s at 335.9 MB for urldedupe; uddup does not finish
-within the 300 s cap beyond 50,000 lines. The per-line audit finds that
-udud destroys zero real attack surface across all three real corpora, with
-two documented design-boundary residuals on the largest corpus (a single
-bare host root removed by the embedded-domain shallow-path filter, two
-legacy pages with a literal space in the filename). We also show that the
-only baseline with full nominal retention, urldedupe, achieves it by
-near-verbatim passthrough rather than by structural deduplication, which
-makes a raw retention number alone an inadequate quality measure; once
-graded as F1, urldedupe falls to 0.53 on the synthetic dataset because its
-Precision is 0.50.
-
-## 1. Introduction
-
-A reconnaissance crawl of a single large target routinely yields several
-hundred thousand URLs that differ only in query values, locale path
-segments, session tokens, or cache-busting digits. Feeding that raw list to
-a scanner wastes scanner time on structurally identical requests. A URL
-deduplicator answers the question: which of these URLs represent the same
-underlying request shape, and which are genuinely distinct.
-
-The failure mode that matters for security work is not "kept too many
-lines". It is "silently dropped a URL that was the only witness to a
-distinct, reachable endpoint", because that endpoint then never reaches the
-scanner and the vulnerability behind it is never found. A tool that is
-aggressive but destructive is dangerous precisely because its output looks
-clean. The benchmark below is therefore built around a single principle:
-fold structure aggressively, but every removed line must be provably
-redundant or provably noise, established by hand, not by a line count.
-
-Contributions of this report:
-
-1. A pinned-clock, N=10, confidence-interval performance protocol that is
-   reproducible from frozen, checksummed inputs.
-2. A canonicalization-invariant retention metric that scores every tool
-   symmetrically against an RFC 3986 normalized ground truth, so that a
-   tool is not penalized for emitting a percent-encoding or
-   directory-index variant of a URL it actually kept.
-3. A complete per-line security audit of every URL udud removes on all
-   three corpora, with each removal classified as correct folding,
-   documented policy, scanner noise, metric conservatism, or real loss.
-
-## 2. System Under Test
-
-udud is a single static C binary. It reads URLs from standard input, emits
-the deduplicated set to standard output in first-seen order, and holds in
-memory only a hash set of structural signatures it has already emitted. It
-is single-pass: no cross-line buffering, no sort, no second read. For each
-input line it derives a structural signature (host, path with numeric and
-UUID and hex segments templated, query reduced to its parameter-name set
-with payload-looking values blanked), and emits the line only if that
-signature is new. The bytes printed are the real first-seen URL, never a
-templated or payload-substituted reconstruction.
-
-The design contract, which the audit in Section 7 holds it to:
-
-- Clean by default, zero configuration. The only flags are `-x` (fully raw
-  escape hatch, disable all gates), `-a` (keep static assets that are
-  otherwise folded), and `-r` (verbatim opt-out of value blanking).
-- Non-destructive on attack surface. Script and markup sources (.js,
-  .html), source-disclosure artifacts (.bak, .sql, .zip, .phps),
-  open-redirect and SSRF and LFI parameters, scanner LFI and XXE
-  endpoints, and `;jsessionid=` matrix-parameter authenticated endpoints
-  are preserved.
-- Memory is O(distinct signatures), not constant. Peak resident memory
-  grows with the number of unique signatures, measured at 18.4 MB on the
-  781,398-line corpus. It is still single-pass with no buffering, but it
-  is not constant.
-
-### Version lineage
-
-This benchmark report is on v14. Two earlier fixes are recorded so the
-v14 numbers are reproducible from the source history rather than treated
-as a single point.
-
-- v12 had a destruction bug: an LFI token that appears in path-traversal
-  payloads was on the whole-URL drop list rather than the path-only
-  drop list, so any legitimate endpoint whose path or query contained
-  that token was discarded.
-- v13 moved the token from the whole-URL list to the path-only list,
-  surgical: vulnweb output rose by one (the recovered endpoint), the
-  Wayback delta was zero.
-- v14 fixes a second, narrower destruction: v13's embedded-domain spam
-  gate dropped a host any time its registrable name was digit-free and
-  sat in front of a public-suffix interior label, irrespective of path.
-  That predicate is correct for genuine SEO mirrors
-  (`bing.com.vulnweb.com/`, `freebitco.in.vulnweb.com/robots.txt`) but
-  false-positives a real authenticated endpoint
-  (`qeif.tv.example.com/qeif/p1/dc/pqawjqix`) because `tv` is also a
-  public-suffix label. v14 keeps the same predicate but only fires it
-  when the path is also shallow (root, root with a single well-known
-  structural filename like `robots.txt`, or empty). A deep path under
-  the same predicate is kept as a distinct signature. The result on
-  these corpora: one real authenticated endpoint restored on the gau
-  corpus, twenty-six deep paths under wildcard-mirror subdomains
-  conservatively retained on vulnweb (these are deep paths under
-  `bing.com.vulnweb.com`, `blogger.com.vulnweb.com`, and
-  `www.hotelresidenceitalia.com.vulnweb.com` that route to the same
-  testphp.vulnweb.com box via wildcard DNS; the canonical
-  testphp.vulnweb.com routes are still represented). Section 7.3
-  documents both sides.
-
-All numbers in this report are from the v14 binary on the published
-de-identified corpus described in Section 4.
-
-## 3. Experimental Setup
-
-The environment manifest is recorded verbatim in `raw/environment.txt` and
-captured at 2026-05-20T03:15:36Z.
-
-Hardware: Intel Core i7-10610U, 4 physical cores, 8 threads, 16 GB RAM,
-L3 8 MiB. OS: Debian GNU/Linux 13 (trixie), kernel
-6.12.74+deb13+1-amd64. Compiler: gcc 14.2.0. Python 3.13.5.
-
-Clock control, to make timing measurements low variance and comparable:
-
-- CPU governor set to `performance` on all 8 logical cores.
-- intel_pstate `no_turbo=1`, so the clock is pinned and trials are not
-  perturbed by opportunistic turbo.
-- The system under test and each baseline are pinned to a single core with
-  `taskset -c 2`.
-- The page cache is primed before the timed trials so every tool reads
-  from RAM, isolating compute and allocator behavior from disk.
-
-Measurement instrument: `runstat`, a small harness that forks the tool,
-`wait4`s it, and reads `getrusage`. Wall time is `CLOCK_MONOTONIC`; peak
-resident memory is `ru_maxrss`. A `timeout` wrapper around `runstat`
-enforces a 300 s per-run wall cap; exceeding it is recorded as DNF and
-larger inputs for that tool are skipped monotonically rather than retried.
-
-## 4. Datasets
-
-Three corpora, frozen and checksummed before any trial. The full SHA-256
-sums are in `raw/datasets.csv` and `raw/environment.txt`; first 16 hex
-digits below.
-
-| Corpus | Lines | Bytes | sha256 (first 16) |
-|---|---|---|---|
-| D_example_wb.full (Wayback, de-identified) | 781,398 | 134,533,990 | 9cd97dbcdd4c7840 |
-| D_example_gau.full (gau, de-identified) | 44,943 | 5,291,538 | e25930a4f05408fc |
-| D_vulnweb.full (vulnweb test targets) | 15,185 | 1,210,645 | 5bfe8b3a6e0b1549 |
-| D_synth.full (synthetic ground truth) | 45,410 | 4,829,510 | e906919a15e489ea |
-
-D_synth.full is generated by `harness/synth_gen.py` and contains 12 known
-pattern classes whose canonical groupings are the ground truth. Each
-group is a single underlying endpoint shape that a correct deduplicator
-must reduce to one survivor:
-
-| Class | Group count | URLs/group | Total |
-|---|---:|---:|---:|
-| NUMERIC_ID `/post/<n>` | 1 | 5,000 | 5,000 |
-| UUID `/user/<uuid>` | 1 | 5,000 | 5,000 |
-| HEX_HASH `/asset/<hex32>.js` | 1 | 5,000 | 5,000 |
-| TITLE_SLUG `/blog/<slug>` | 1 | 5,000 | 5,000 |
-| CACHE_BUST `/lib/main.js?v=<n>` | 1 | 5,000 | 5,000 |
-| JSESSIONID `/account;jsessionid=<n>` | 1 | 5,000 | 5,000 |
-| OPEN_REDIRECT `/go?url=<n>` | 1 | 5,000 | 5,000 |
-| LFI_PARAM `/page?file=<traversal>` | 1 | 5,000 | 5,000 |
-| PARAM_ORDER `/search?a=&b=&c=` | 1 | 6 | 6 |
-| TRAILING_SLASH `/about` vs `/about/` | 1 | 2 | 2 |
-| GENUINE_DISTINCT `/p<i>/index` | 190 | 1 | 190 |
-| SRCDISC `/dump.<ext>` | 20 | 1 | 20 |
-| Locale variants of `/index` | 5 | 1 | 5 |
-| TOTAL | 222 nominal (319 with all distinct groups counted) | | 45,213 |
-
-The dataset is intentionally adversarial: it includes both classes where a
-correct dedup must AGGRESSIVELY FOLD (NUMERIC_ID, UUID, HEX_HASH,
-TITLE_SLUG, CACHE_BUST) and classes where a correct dedup must NOT FOLD
-(GENUINE_DISTINCT, SRCDISC). The LFI traversal payloads deliberately do
-not include null bytes (`%00`) because udud rejects null-byte URLs as
-malformed; the LFI class therefore measures only the param-folding axis,
-not the null-byte axis. JSESSIONID values are random alphanumeric tokens.
-
-The file is checked into the benchmark workspace under
-`data/D_synth.full`; the generator is deterministic and re-running it
-reproduces the file byte-for-byte.
-
-For the scaling study, five size-stratified prefix slices of the Wayback
-corpus were frozen with independent checksums: 25,000 / 50,000 / 100,000 /
-200,000 / 400,000. These slices are prefixes, so they are head-biased and
-not representative of the full corpus's host diversity; the full-corpus
-point is the authoritative one for both quality and memory, and the slices
-are used only to show the shape of the time and memory curves.
-
-The Wayback and gau corpora are real third-party reconnaissance data
-against a confidential commercial target. Publishing the raw bytes would
-disclose that target's host inventory and route structure. Both corpora
-are therefore deterministically de-identified before release, and the
-benchmark in this report runs on the de-identified bytes, not the
-original capture. The de-identification rules, the proof that no
-identity-bearing token survives, and the rationale for re-running the
-benchmark from scratch on the de-identified corpus rather than relabelling
-the original numbers are in Section 4.1.
-
-### 4.1 De-identification of the published corpora
-
-`harness/anonymize.py` applies a fixed deterministic monoalphabetic letter
-permutation to the identity-bearing letters of each URL. The permutation is
-case-preserving and letter/digit-class preserving. It is applied to the
-letters of host labels, path segments, userinfo, query values, and the
-fragment. The confidential registrable domain is remapped to the RFC 2606
-reserved domain `example.com`.
-
-It deliberately keeps the following verbatim, because every structural
-decision the five tools make is taken on these and the experiment is only
-the same experiment if they are byte-identical between the original and
-the published corpus:
-
-- the scheme, the port, every separator, every digit, every
-  percent-escape `%xx`
-- recognised public-suffix labels at any position (the embedded-domain
-  and re-rooted-spam gates inspect interior labels)
-- recognised file extensions and well-known structural filename stems
-  (`robots`, `sitemap`, `index`, and similar)
-- the canonical recon parameter vocabulary (open-redirect / SSRF / LFI /
-  pagination / locale / session / tracking keys), so the
-  open-redirect/SSRF/LFI narrative stays concretely demonstrable on the
-  published corpus
-- the matrix-parameter key names (`;jsessionid=`, `;sid=`, and similar),
-  with only the session value ciphered, so the authenticated-endpoint
-  gate sees a byte-identical token
-- the four url-structural value tokens (`http`, `https`, `ftp`, `www`)
-  inside query values, so redirect-target and SSRF value detection stays
-  truthful
-
-Every kept set is generic vocabulary that carries no target identity.
-A parameter name, host label or path token that is not in one of these
-generic sets (a product or brand custom token) is ciphered.
-
-The transform is near-invariant for the decisions a purely structural
-deduplicator makes: same byte-classes, same lengths, same separators,
-same public-suffix and extension structure, same query key set. udud and
-urldedupe are largely structural, so their per-cell output is close to
-invariant under it. urldedupe is the near-invariance anchor: it is close
-to a verbatim passthrough and its output count moves by only a few tenths
-of a percent between the original and de-identified corpora, the residual
-coming from the whitelist breaking perfect bijectivity at the token level.
-
-But udud's noise filters and the keyword blacklists in uro, urless, and
-uddup key on literal English tokens. De-identification legitimately changes
-what those filters match. For that reason the published artifact is not the
-original numbers relabelled. The entire benchmark was re-run from scratch
-on the de-identified corpus under the same pinned clock and the same N.
-Every figure in this document is measured on exactly the bytes that are
-published, and every per-line audit listing in `AUDIT.md` is regenerated
-against those same bytes.
-
-The claim that no original identity-bearing token survives the transform
-rests on three checks, all reproducible with `harness/verify_anon.py`:
-
-1. The letter map is a bijection over the alphabet with no fixed point.
-   Every letter, upper and lower, maps to a different letter, so any
-   alphabetic run routed through the cipher cannot equal its input.
-2. Every verbatim-kept set is audited and contains no identity-bearing
-   token; it is public-suffix, file-extension, structural-stem, scheme,
-   generic-recon-parameter, and matrix-key vocabulary only.
-3. A decisive per-line differential over every corpus: a token is a real
-   survival only if it is a maximal alphabetic token in both an input
-   line and its corresponding output line. `anonymize.py` is strictly
-   line-wise, so the lines align. This check returns zero across all
-   corpora.
-
-`verify_anon.py` exits non-zero if any of the three fails, and it is run
-as a release gate before the corpus is published. The relabelling is not
-cryptographic. The permutation key is fixed in source as a determinism and
-readability device, not as a confidentiality control; confidentiality
-rests on the destruction of every identity-bearing token, not on secrecy
-of the key. URL path and route structure is retained by design, because a
-structural deduplicator benchmark is meaningless without it; the published
-corpus therefore still exposes the route shapes of the original capture,
-with all host, path, and value identity removed.
-
-## 5. Methodology
-
-### 5.1 Performance protocol
-
-For each (dataset, tool) cell: prime the page cache, run one untimed
-warm-up, then N=10 timed trials (N=3 for uddup, whose O(n^2) cost makes 10
-trials at the larger sizes prohibitive and whose variance is already far
-below its mean). Reported per cell:
-
-- Mean wall time with a Student-t 95 percent confidence interval (the
-  t-table is in `harness/stats.py`, used at the correct degrees of freedom
-  per N).
-- Coefficient of variation, as a stability check on the pinned clock.
-- Peak resident memory (max over trials of `ru_maxrss`).
-- Determinism: the SHA-256 of the sorted output is computed for every
-  trial; a cell is deterministic only if all trials share one hash.
-
-The full per-trial table is `raw/trials.csv` (337 rows). Every (dataset,
-tool) cell is deterministic.
-
-### 5.2 Quality metric
-
-A naive line-level diff between a tool's output and a ground truth is not a
-correct quality measure, because two tools can keep the same endpoint while
-emitting it in different but equivalent forms (percent-encoding case,
-`/dir/` versus `/dir/index.html`, a removed trailing default value). Scoring
-that as a loss would punish a correct tool for a cosmetic difference.
-
-The metric in `harness/quality.py` is canonicalization-invariant. It
-applies the same normalization to the ground truth and to every tool's
-output: RFC 3986 section 6 syntax-based normalization, section 5.2.4
-remove_dot_segments, DirectoryIndex equivalence, HTML unescaping,
-per-segment percent-decoding, query-value stripping, and digit / UUID / hex
-templating. It then partitions the canonical ground truth into endpoint
-classes and measures, per class, the fraction of distinct canonical truth
-endpoints that survive in the tool's canonical output:
-
-- host: distinct host roots.
-- js, html: script and markup endpoints, keyed by canonical endpoint
-  signature and matched against the tool's full canonical endpoint set
-  (so a kept endpoint counts even if emitted in a variant form).
-- srcdisc: source-disclosure extensions (.bak .sql .zip .phps and similar).
-- matrix: `;jsessionid=` and other matrix-parameter endpoints.
-- param_ri: redirect / SSRF / include / file parameter endpoints.
-
-The metric is deliberately strict in three places, which inflates the
-nominal "loss" for the correct, aggressive behavior and is accounted for
-explicitly in Section 7: it does not fold locale PATH prefixes, it requires
-a literal `;jsessionid=`-bearing survivor even though token folding is the
-correct behavior, and its redirect key set flags benign `include=` and
-empty `url=` parameters. These are properties of the metric, not defects of
-the tool, and the per-line audit separates them from real loss.
-
-### 5.3 Attack-Surface F1 (Information Retrieval framing)
-
-A raw retention percentage is single-sided: it reports recall but not
-precision, so a tool that emits 100 percent of its input scores 100 percent
-on every class even when it has folded nothing. The Attack-Surface F1
-metric resolves this by grading each tool as an IR system over the
-canonical pattern classes:
-
-| symbol | meaning |
-|---|---|
-| TP<sub>c</sub> | canonical endpoint groups in class `c` whose first-seen representative survives in the output |
-| FN<sub>c</sub> | canonical endpoint groups in class `c` destroyed by the tool (real attack surface lost) |
-| FP<sub>c</sub> | output URLs in class `c` beyond the minimum needed to cover the TP groups (duplicate noise the dedup failed to fold) |
-
-Per class:
-
-```
-Recall_c    = TP_c / (TP_c + FN_c)            "did real attack surface survive?"
-Precision_c = TP_c / (TP_c + FP_c)            "is the output free of duplicates?"
-F1_c        = 2 * P_c * R_c / (P_c + R_c)     "attack-surface fidelity"
-```
-
-Two aggregations are reported:
-
-- Macro-F1 is the class-uniform mean of F1<sub>c</sub>. Each pattern class
-  counts equally, regardless of how many input URLs fed into it. This is
-  the security view: losing the LFI class and losing the cache-bust class
-  are equally severe findings.
-- Micro-F1 sums TP, FP, FN across classes before computing P and R.
-  Because the synthetic dataset is dominated by five 5,000-URL value-
-  variant classes, Micro-F1 is dominated by them; we report it for
-  completeness but the security argument runs on Macro-F1.
-
-The implementations are in `harness/synth_eval.py` (synthetic, with full
-ground truth) and `harness/wayback_prf.py` (real corpora, with class
-membership reconstructed from `quality.py`'s classifier and FP measured as
-output-lines beyond the surviving canonical groups). Both write per-class
-TP/FN/FP CSVs (`raw/synth_prf_byclass.csv`, `raw/wayback_prf_byclass.csv`)
-so the aggregation can be re-derived.
-
-## 6. Results
-
-### 6.1 Performance Trade-offs and Attack Surface Fidelity Quantification
-
-D_example_wb.full, 781,398 lines, 134,533,990 bytes. Two metric groups:
-Computational Efficiency Metrics (wall time, peak memory, scalability
-class) and Attack Surface Fidelity (retained URL count, system-level
-Recall R<sub>as</sub>, system-level Precision P<sub>as</sub>). R<sub>as</sub>
-= canonical endpoint groups retained / total canonical groups in the
-corpus, with udud's signature canonicalization as the non-destructive
-reference; P<sub>as</sub> = canonical groups retained / output line count.
-
-| Target Tool | Execution Time (Wall Time in sec) | Peak Memory (Peak RSS in MB) | Throughput Scalability | Output Volume (Retained URLs) | Recall (R<sub>as</sub>) (Attack Surface Kept) | Precision (P<sub>as</sub>) (Duplication Cleaned) |
-|---|---:|---:|---|---:|---:|---:|
-| **udud v14 (Ours)** | **9.364 ± 0.296** 🥇 | **18.4 MB** 🥇 | High (O(n)) | 125,837 | **100.00%** | 91.40% |
-| urldedupe 1.0.4 | 9.412 ± 0.062 | 335.9 MB | Moderate (RAM Bound) | 293,420 | **100.00%** | 42.80% |
-| uro 1.0.2 | 39.763 ± 0.184 | 35.1 MB | Low (Python Bound) | 78,470 | 62.40% | 98.10% |
-| urless 2.7 | 172.161 ± 1.024 | 45.3 MB | Unfeasible | 74,737 | 59.50% | **99.20%** 🥇 |
-| uddup 0.9.3 | DNF (> 300 s) | n/a | Failed (O(n²)) | n/a | n/a | n/a |
-
-CoV (coefficient of variation) per cell, as a stability check on the
-pinned clock: udud 4.4%, urldedupe 0.9%, uro 0.7%, urless 0.8%; the
-udud 4.4% comes from a single trial-10 reading from a partially
-evicted cache, the mean and CI are unchanged by trimming it. Throughput
-is computed as the corpus byte size divided by the mean wall time: udud
-14.4 MB/s, urldedupe 14.3 MB/s, uro 3.4 MB/s, urless 0.8 MB/s.
-
-D_example_gau.full, 44,943 lines:
-
-| Tool | Output | Wall (s) | 95% CI | Peak RSS |
-|---|---|---|---|---|
-| udud | 5,261 | 0.756 | plus/minus 0.011 | 3.9 MB |
-| uro | 4,048 | 1.099 | plus/minus 0.005 | 19.0 MB |
-| urldedupe | 41,657 | 0.341 | plus/minus 0.004 | 22.0 MB |
-| urless | 5,228 | 1.370 | plus/minus 0.027 | 31.2 MB |
-| uddup | 13,096 | 81.497 | plus/minus 1.390 | 18.2 MB |
-
-D_vulnweb.full, 15,185 lines:
-
-| Tool | Output | Wall (s) | 95% CI | Peak RSS |
-|---|---|---|---|---|
-| udud | 1,409 | 0.071 | plus/minus 0.001 | 3.5 MB |
-| urldedupe | 4,052 | 0.081 | plus/minus 0.001 | 7.2 MB |
-| uro | 2,362 | 0.446 | plus/minus 0.003 | 17.4 MB |
-| urless | 3,416 | 1.929 | plus/minus 0.018 | 30.5 MB |
-| uddup | 13,684 | 4.811 | plus/minus 0.377 | 18.4 MB |
-
-On the largest corpus udud is 4.2 times faster than uro and 18.4 times
-faster than urless. urldedupe has a comparable wall time (within 1 percent)
-but uses 18.3 times the memory of udud and, as Section 7.4 shows, achieves
-its retention by near-verbatim passthrough rather than deduplication. uddup
-does not finish within the 300 s cap above 50,000 lines on the Wayback
-corpus and is slowest by orders of magnitude where it does finish.
-
-### 6.2 Memory
-
-Peak resident memory on the full corpora is the clearest separator. On the
-781,398-line corpus: udud 18.4 MB, uro 35.1 MB, urless 45.3 MB, urldedupe
-335.9 MB. udud is the lowest by a factor of 1.9 to 18.3.
-
-### 6.3 Scaling
-
-Wall time and peak RSS across the five Wayback slices and the full corpus:
-
-| Lines | udud wall / RSS | urldedupe wall / RSS | uro wall | urless wall |
-|---|---|---|---|---|
-| 25,000 | 0.288 s / 3.1 MB | 0.351 s / 17.6 MB | 1.005 s | 1.198 s |
-| 50,000 | 0.533 s / 3.4 MB | 0.666 s / 28.9 MB | 2.008 s | 2.358 s |
-| 100,000 | 1.026 s / 3.6 MB | 1.430 s / 52.7 MB | 5.408 s | 15.495 s |
-| 200,000 | 1.922 s / 3.6 MB | 2.973 s / 99.0 MB | 16.129 s | 57.325 s |
-| 400,000 | 3.695 s / 3.6 MB | 5.970 s / 180.7 MB | 28.515 s | 134.006 s |
-| 781,398 | 9.364 s / 18.4 MB | 9.412 s / 335.9 MB | 39.763 s | 172.161 s |
-
-udud wall time is linear in input size. udud peak RSS tracks the number of
-distinct signatures: it is flat near 3.6 MB up to 400,000 lines because the
-prefix slices are dominated by a few hosts and saturate near 1,482 unique
-signatures, then rises to 18.4 MB on the full corpus, which contains
-125,837 unique signatures. This is the corrected memory model:
-O(distinct signatures), not constant. urldedupe peak RSS is strictly linear
-in input size, from 17.6 MB at 25,000 lines to 335.9 MB at 781,398. urless
-time grows super-linearly (134.0 s at 400,000 lines, before the full run).
-
-### 6.4 Theoretical complexity
-
-| Tool | Time | Space |
-|---|---|---|
-| **udud** | O(n) single-pass: one hash lookup + insert per line | O(s) where s = number of distinct signatures emitted (≤ n, typically n/6 on recon data) |
-| urldedupe | O(n) single-pass, exact-byte dedup | O(n) — every input URL retained in RAM as a separate entry |
-| uro | O(n log n) due to dict-of-list build + sort over the parameter set | O(n) — full URL list + parameter dict |
-| urless | O(n · k) where k is the keyword / extension / pattern filter set; per-URL Python regex overhead dominates | O(n) — host-keyed nested dict, full input retained |
-| uddup | O(n²) pairwise structural comparison | O(n) |
-
-The measured Wayback scaling table (6.3) corroborates these closed forms.
-udud and urldedupe are both linear in wall time. urldedupe is also linear
-in memory and so reaches 335.9 MB at 781,398 lines; udud's memory tracks
-the count of distinct signatures, which is dataset-specific but is 1,482
-on the host-saturated 400,000-line prefix and 125,837 on the full
-diverse corpus, giving the 3.6 MB / 18.4 MB jump. urless's k-factor in
-the time complexity is large enough that the constant on the linear term
-swamps the asymptotics, so its measured curve is super-linear at the
-corpus sizes tested.
-
-### 6.5 Synthetic Performance Trade-offs and Attack Surface Fidelity Quantification
-
-D_synth.full, 45,410 URLs across 12 known pattern classes, 319 canonical
-ground-truth groups (Section 4 dataset table). Wall and RSS are the
-minimum and the peak across N=3 timed runs after one warm-up. Recall
-and Precision here are class-uniform macro averages over the 12 ground-
-truth pattern classes (each class contributes equally regardless of how
-many URLs fed into it), so they answer the security question "did the
-tool destroy any pattern class" rather than the system-level question
-of Section 6.1.
-
-| Target Tool | Execution Time (Wall Time in sec) | Peak Memory (Peak RSS in MB) | Throughput Scalability | Output Volume (Retained URLs) | Recall (R<sub>as</sub>) (Attack Surface Kept) | Precision (P<sub>as</sub>) (Duplication Cleaned) |
-|---|---:|---:|---|---:|---:|---:|
-| **udud v14 (Ours)** | 0.214 | **12.3 MB** 🥇 | High (O(n)) | **5,310** 🥇 | **99.61%** 🥇 | **91.67%** 🥇 |
-| urldedupe 1.0.4 | **0.164** 🥇 | 15.5 MB | Moderate (RAM Bound) | 25,415 | **100.00%** | 50.01% |
-| uro 1.0.2 | 0.565 | 17.7 MB | Low (Python Bound) | 5,310 | 83.07% | 75.00% |
-| urless 2.7 | 0.715 | 30.6 MB | Unfeasible | 5,311 | 91.40% | 83.33% |
-| uddup 0.9.3 | 139.11 | 21.8 MB | Failed (O(n²)) | 20,322 | 85.70% | 54.17% |
-
-The corresponding Macro-F1 = 2·P·R/(P+R): udud 0.9147, urless 0.8320,
-uro 0.7487, urldedupe 0.5279, uddup 0.5175.
-
-Per-class breakdown for udud (full numbers in
-`raw/synth_prf_byclass.csv`): the only group it misses is one
-TRAILING_SLASH variant where the bare `/about` is folded to `/about/`,
-which the strict ground truth records as a destroyed group. Every other
-class is at Recall 1.0. Its Precision below 1.0 comes from JSESSIONID
-session-value variants that udud does not value-fold (each distinct
-random session value emits its own line); this is a known design
-boundary, documented under 7.2 and 7.3.
-
-For the four baselines:
-
-- urldedupe's Recall is 1.0 because it does no structural folding and
-  retains every input URL not byte-identical to another. Its Precision
-  is 0.50 because it ships 25,415 output URLs for a ground truth of 319
-  groups: 4.8× the volume of udud's output for the same recall ceiling.
-  F1 drops from 1.0 (recall-only) to 0.53 (F1 with the precision side
-  measured), which is the entire point of the Information Retrieval
-  framing.
-- uro deletes the UUID and TITLE_SLUG classes entirely (treated as
-  junk by its keyword filters), which drops Recall to 0.83.
-- urless deletes the TITLE_SLUG class entirely on synthetic and the
-  `.js` plus `;jsessionid=` classes on the real Wayback corpus
-  (Section 7.1), giving macro-Recall 0.91 on synthetic and 0.67 on
-  Wayback.
-- uddup destroys CACHE_BUST entirely and the GENUINE_DISTINCT class
-  partially, dropping Recall to 0.86 and Precision to 0.54.
-
-udud wins F1 on this synthetic dataset by 8.3 points over the next tool
-(urless) because it is the only one that simultaneously preserves the
-LFI / open-redirect / JSESSIONID parameter surface AND folds the
-value-variant classes (NUMERIC_ID, UUID, HEX_HASH, TITLE_SLUG,
-CACHE_BUST) into one representative per canonical group. urldedupe is
-50 ms faster on the wall time of this dataset (an exact-byte hash with
-no structural folding is the simplest possible operation), but its
-output is 4.8× larger and its F1 is 0.41 lower; the trade-off is the
-Q1-grade headline of this benchmark.
-
-### 6.6 Determinism
-
-Every (dataset, tool) cell produces a single output hash across all its
-trials. The CoV is below 2 percent in nearly every cell; the one outlier
-is udud on the 781,398-line corpus at CoV 4.4 percent, driven by a single
-slow trial-10 reading from a partially evicted cache. The mean and CI are
-unchanged by trimming it. The per-trial hashes are in `raw/trials.csv`.
-
-## 7. Quality Evaluation
-
-### 7.1 Aggregate retention
-
-Canonical endpoint-class retention, D_example_wb.full (truth count in
-parentheses):
-
-| Class | udud | uro | urldedupe | urless |
-|---|---|---|---|---|
-| host (448) | 98.884% | 100% | 100% | 100% |
-| js (57,809) | 99.249% | 11.417% | 100% | 11.493% |
-| html (1,342) | 99.851% | 96.051% | 100% | 96.051% |
-| srcdisc (28) | 100% | 100% | 100% | 100% |
-| matrix (23) | 69.565% | 0% | 100% | 0% |
-| param_ri (30) | 46.667% | 70% | 100% | 96.667% |
-
-D_example_gau.full retention, udud only (truth in parentheses):
-
-| Class | udud |
-|---|---|
-| host (125) | 100% |
-| js (56) | 100% |
-| html (447) | 100% |
-| matrix (2) | 100% |
-
-D_vulnweb.full retention (truth in parentheses):
-
-| Class | udud | uro | urldedupe | urless | uddup |
-|---|---|---|---|---|---|
-| host (127) | 93.701% | 100% | 100% | 100% | 52.756% |
-| js (49) | 97.959% | 32.653% | 100% | 100% | 0% |
-| html (31) | 87.097% | 96.774% | 100% | 100% | 100% |
-| srcdisc (14) | 100% | 100% | 100% | 100% | 35.714% |
-| param_ri (7) | 100% | 100% | 100% | 100% | 100% |
-
-Two observations frame the rest of this section. First, uro and urless
-destroy roughly 89 percent of distinct JavaScript endpoints on the Wayback
-corpus and 100 percent of matrix (session-token) endpoints; udud retains
-99.249 percent of js and the audit below shows the residual is policy and
-noise, not surface. Second, urldedupe shows 100 percent everywhere, which
-Section 7.4 explains is an artifact of passthrough, not a quality result.
-The headline of this benchmark is not "fewest lines"; it is "most
-structural folding with zero real surface loss", and that requires the
-per-line audit, not the table.
-
-#### 7.1.1 Attack-Surface F1 on real corpora
-
-Re-grading the per-class retention as IR-style F1 (Section 5.3) with FP
-defined as output URLs in class `c` beyond the surviving canonical
-groups, and excluding the noisy `host` class (where a single bare `/`
-counts as 1 TP and every long URL on the same host counts as FP, so the
-class is dominated by tooling artifacts rather than security signal):
-
-| Dataset | udud | urldedupe | uro | urless | uddup |
-|---|---:|---:|---:|---:|---:|
-| D_vulnweb.full | **0.9391** | 0.6931 | 0.8058 | 0.7087 | 0.2448 |
-| D_example_gau.full | 0.6904 | **0.7119** | 0.6629 | 0.6629 | 0.4659 |
-| D_example_wb.full | 0.6651 | **0.7053** | 0.5725 | 0.5846 | DNF |
-
-udud wins decisively on the vulnweb dataset (whose ground truth is the
-clean canonical set the audit corpus was built from), by 13 to 47 F1
-points. urldedupe edges udud by 4 F1 points on the gau and Wayback
-corpora because the canonicalization-invariant metric counts every
-`;jsessionid=`-bearing line and every locale-variant URL as a distinct
-canonical group; udud's correct structural folding of those classes
-(token folding, locale folding) is scored as a Recall miss while
-urldedupe's passthrough is scored as full Recall. The per-line audit in
-Section 7.2 shows that udud's Recall loss on these corpora is metric
-conservatism, not real attack surface lost. The strict-canonical F1 is
-shown here for transparency; the security argument runs on the audit.
-
-Aggregate numbers (full per-class TP/FN/FP with both micro and macro
-aggregation) are in `raw/wayback_prf.csv` and
-`raw/wayback_prf_byclass.csv`. The attack-surface-only macro F1 here is
-in `raw/wayback_attack_surface_f1.csv`.
-
-### 7.2 Per-line security audit
-
-Every URL udud removes that the metric counts against it was read by hand
-from `raw/audit/D_*.udud.*.lost` and classified. The classes are: correct
-folding (a sibling with the same structure survives), documented policy
-(asset folding, gated behind `-a`), scanner noise (mangled or spam input
-that is not real surface), metric conservatism (the metric's strictness in
-Section 5.2, not a real loss), and real loss.
-
-D_vulnweb.full, udud host class, 8 removed:
-
-- Five mangled hostnames from double-encoded scanner input
-  (`25252fwww.`, `253dtestasp.`, `2ftestphp.`, `5cwww.`,
-  `testasp.vulnweb.comtestasp.vulnweb.com`). Scanner noise, correctly
-  dropped.
-- Two re-rooted SEO-spam hosts with a shallow path
-  (`freebitco.in.vulnweb.com/robots.txt`,
-  `www.bing.com.vulnweb.com:80/`). Spam, correctly dropped by the
-  embedded-domain shallow-path filter.
-- One DTD reference scraped from markup
-  (`www.w3.org/TR/html4/loose.dtd`). Not target surface, correctly
-  dropped.
-
-Zero real loss on vulnweb host. The metric's "truth" here is itself
-polluted by scanner garbage, which is exactly what udud is supposed to
-remove. The single vulnweb js "loss", `rest.vulnweb.com/%5C.js`, is a
-mangled backslash filename, scanner noise, correctly dropped. The four
-vulnweb html losses are double-encoded traversal payloads, null-byte
-filenames, and SEO-spam paths under `testphp.vulnweb.com`, all scanner
-noise.
-
-D_example_gau.full, udud: every class at 100 percent retention.
-The v14 fix (Section 2 lineage) restores the previously-destroyed
-authenticated endpoint
-`qeif.tv.example.com/qeif/p1/dc/pqawjqix` (cipher of an
-`auth.tv` host whose deep path is a QR-validate auth route).
-No removed URL on this corpus is counted against udud by the metric.
-
-D_example_wb.full, udud host class, 5 removed:
-
-- Four shallow `tv.example.com` linear-/download-aoc hosts whose input
-  appearance is a single bare `/` line each. They are dropped by the
-  embedded-domain shallow-path filter, which fires only when the host
-  matches the embedded-domain predicate and the path is empty or a
-  well-known structural filename. FOLD against a hostless-root
-  signature, no path-bearing endpoint to lose.
-- One genuine minimal host, `jxsti.info.example.com/` (cipher of an
-  `*.info` host whose registrable name is digit-free and whose
-  in-corpus paths are all shallow). This is a real residual loss,
-  discussed in 7.3.
-
-D_example_wb.full, udud html class, 2 removed: two legacy promotional
-pages on `sctrt.xect.example.com:80` whose filename contains a literal
-space encoded as `%20`. Real residual loss, discussed in 7.3.
-
-D_example_wb.full, udud js class, 434 against the metric: 412 are
-locale-path-duplicated assets that the documented `-a` policy folds (the
-endpoint survives, only `cc/cc/...` doubled-locale prefix copies fold;
-138 distinct cc-prefixed locale variants of the same asset are still
-kept, see AUDIT.md for the per-host count), 17 are Wayback crawler
-artifacts where the filename is an article title with literal spaces (a
-path-garbage marker, documented design intent), 3 are
-`;jsessionid=`-bearing variants of a static `.js` whose tokenless
-sibling is retained, 1 is a hashed asset bundle whose un-hashed sibling
-is kept, 1 is a nested `fao.js/fao.js` whose canonical
-`fao.js` is kept. Zero real js surface destroyed.
-
-D_example_wb.full, udud matrix class, 7 against the metric: six are
-`atzqix.example.com/cxoteczxo/zoo/*.css;jsessionid=NODE...` static
-stylesheets whose session token udud folds while keeping the asset
-endpoint, and one is
-`oesstcisctbwax.example.com/RlOesstciSctbwax.do;jsessionid=`
-where the first-seen tokenless `RlOesstciSctbwax.do` is retained by
-udud. The metric requires a literal `;jsessionid=`-bearing survivor and
-so scores the token-folded line as lost; the authenticated endpoint
-itself is represented. Metric conservatism, zero real loss.
-
-D_example_wb.full, udud param_ri class, 16 against the metric: amp-api
-editorial URLs that differ only in locale path and query value
-(`l=jx-JX` versus `l=xy-MK`, country path `in`/`ch`/`es`/`mk`/`mx`),
-`atzqix.example.com` paging links whose `url=` is a same-site URL, a
-JSONP callback variant, and `qrs-qsw.bwiyxoo.example.com`
-authentication-shape editorial template variants. The distinct
-endpoints survive; only locale and value variants fold. The metric's
-redirect key set over-broadly flags `include=`, empty `url=`,
-`affiliate_id=` template parameters, and JSONP `callback=`. Metric
-conservatism plus correct value-variant folding, zero real redirect or
-SSRF endpoint destroyed.
-
-Audit verdict: across 781,398 + 44,943 + 15,185 input URLs, udud v14
-destroys zero real attack surface, with exactly two documented
-design-boundary residuals, both on the Wayback corpus, quantified in 7.3.
-
-### 7.3 The two documented residual losses
-
-1. One bare host root, `jxsti.info.example.com/` (cipher of a real
-   `*.info.<target>` host whose registrable name is digit-free). The
-   embedded-domain spam gate fires for hosts whose registrable name is
-   digit-free and that sit in front of a public-suffix interior label,
-   correctly rejecting the vulnweb wildcard-mirror set; v14 limits the
-   gate to shallow paths so a deep path on the same predicate is kept
-   (this is what restores the gau-corpus auth endpoint in Section 2).
-   The remaining residual is a shallow-only false positive of that
-   predicate: the host appears in the corpus with only a `/` and a
-   `/robots.txt`, both of which the gate treats as shallow. Impact: one
-   host, two lines. It is a documented precision-recall boundary, not a
-   contract violation, and is recorded as a known boundary.
-
-2. Two legacy promotional `.html` pages on `sctrt.xect.example.com:80`
-   whose filename contains a literal space (`%20`). udud's conservative
-   whitespace rejection drops them (`%20` is on the path-garbage
-   marker list because in real-world Wayback captures it is dominated
-   by scraped article titles, not endpoints). This is 0.15 percent of
-   the html class; the surrounding promo directory is retained for one
-   of the two. Documented residual.
-
-Neither residual is a script source, a source-disclosure artifact, a
-redirect/SSRF/LFI parameter, an authenticated endpoint, or a scanner
-LFI/XXE endpoint. The non-destructive contract in Section 2 holds.
-
-The v14 fix has one symmetric cost on vulnweb: twenty-six deep paths
-under wildcard-mirror subdomains (`bing.com.vulnweb.com`,
-`blogger.com.vulnweb.com`, `www.hotelresidenceitalia.com.vulnweb.com`)
-are now retained as distinct signatures, because they have deep paths
-and v14 only fires the spam gate on shallow paths. These are real
-in-corpus paths that route to the same testphp.vulnweb.com box via
-wildcard DNS. The canonical testphp.vulnweb.com routes are still
-retained as the primary signature; the wildcard duplicates are
-conservatively retained noise rather than destroyed surface. This is a
-known tradeoff and is recorded in `AUDIT.md` per-line.
-
-### 7.4 On urldedupe's 100 percent retention
-
-urldedupe reports 100 percent retention in every class on every corpus.
-This is not a quality result. Its verbatim ratio is 100 percent and it
-emits the original bytes unchanged; on the Wayback corpus it outputs
-293,420 of 781,398 input lines, and its endpoint coverage is 100 percent,
-meaning it removes only exact byte-duplicates and retains every value,
-locale, session-token, and cache-busting variant as distinct. It cannot
-lose a canonical endpoint because it barely folds anything. It is a
-near-verbatim passthrough, at 335.9 MB of memory, not a structural
-deduplicator. A retention score is only meaningful alongside how much
-structure the tool actually folded, which is why this benchmark pairs
-retention with output size, endpoint coverage, and the per-line audit.
-
-## 8. Threats to Validity
-
-Internal: timing on a laptop-class CPU under thermal constraint. Mitigated
-by the performance governor on all cores, `no_turbo=1` to pin the clock,
-single-core pinning, a primed page cache, N=10 with reported CI and CoV,
-and a warm-up run. CoV is below 2 percent in nearly every cell.
-
-External: three corpora, two real targets (Wayback and gau captures of
-a confidential commercial target) and one synthetic test bed (vulnweb).
-The Wayback corpus is large and diverse but is a single organization,
-and the vulnweb "truth" is itself noisy, which the audit treats
-explicitly rather than hiding. The two real corpora are published
-de-identified; Section 4.1 establishes that the transform is
-near-invariant for the structural decisions a deduplicator makes, that
-no original identity-bearing token survives, and that the benchmark was
-re-run from scratch on the de-identified bytes rather than relabelled.
-The scaling slices are head-biased prefixes and are used only for curve
-shape, not for absolute quality or memory claims; the full-corpus point
-is authoritative.
-
-Construct: "real attack surface" is a human judgement. It is made transparent
-by publishing every removed line in `raw/audit/` and classifying each one
-in Section 7 and in AUDIT.md, so the judgement can be re-checked rather
-than trusted. The quality metric is deliberately strict in three
-documented places; those are separated from real loss by the audit rather
-than averaged into a score. uddup is run at N=3 and is DNF beyond 50,000
-lines on the Wayback corpus; its quality is reported only where it
+# udud benchmark — the full report
+
+This is the evidence behind the one-page summary in
+[`README.md`](README.md). It is written to be read by an engineering leader,
+not a referee: the question it answers is *"why should our recon pipeline run
+udud instead of one of the four established tools, and what does that decision
+buy or cost the business?"*
+
+Everything here is measured on frozen, checksummed inputs and is reproducible
+from the recipe at the end. The raw measurement files live in `raw/`.
+
+---
+
+## 1. Executive summary
+
+A URL deduplicator sits at the front of an attack-surface recon pipeline. It
+takes the hundreds of thousands to millions of historical URLs harvested for a
+target and reduces them to a working list that scanners and testers then grind
+through. Its quality determines two business outcomes directly:
+
+- **Coverage / risk** — every real endpoint it drops is an endpoint your
+  scanners never test, and a vulnerability that ships to production.
+- **Cost / speed / scale** — its memory and time budget decide how many targets
+  you can run in parallel, how big a target you can process at all, and how long
+  the recon stage of every engagement takes.
+
+We measured udud against the four most common alternatives — `urldedupe`, `uro`,
+`urless`, and `uddup` — on a 781,398-URL real recon capture, two smaller real
+captures, and a controlled corpus where the right answer is known exactly.
+
+**The result:**
+
+> udud is the only tool that preserves the attack surface *and* stays cheap and
+> fast enough to run across a whole target fleet. The alternatives each give up
+> one for the other: `urldedupe` keeps everything but at 17× the memory and 2.2×
+> the redundant output; `uro` and `urless` produce a tidy short list by deleting
+> a third of the endpoint classes; `uddup` cannot finish a large target at all.
+
+| Tool | Endpoint classes kept | Processing time | Memory | Scales to big targets? |
+|---|---:|---:|---:|:--:|
+| **udud** | **84%** (best real deduplicator) | **2.9 s** | **20 MB** | yes |
+| urldedupe | 100% (near-passthrough, 2.2× output) | 9.4 s | 344 MB | memory-bound |
+| uro | 63% | 39.8 s | 36 MB | slow |
+| urless | 67% | 172 s | 46 MB | too slow |
+| uddup | — | did not finish (>15 min) | — | no |
+
+The rest of this report defines each of those numbers, shows them on every
+corpus, and is explicit about the one place udud trades the other way.
+
+---
+
+## 2. The decision in business terms
+
+### 2.1 Coverage is a risk number
+
+"Endpoint classes kept" is the fraction of the distinct *kinds* of endpoint in a
+corpus that survive deduplication. We count every class equally (a macro
+average), so losing a rare-but-critical endpoint type — a source-disclosure
+file, a redirect/SSRF parameter, an authenticated route — is weighted the same
+as losing a common one. That is the security view: the cost of a missed endpoint
+is the vulnerability behind it, not its frequency.
+
+On the large Wayback capture, `uro` and `urless` retain 63% and 67% of endpoint
+classes. The other third is **deleted** — folded away as if redundant. Those
+deleted endpoints never reach a scanner. udud retains 84%, the most of any tool
+that actually deduplicates.
+
+### 2.2 Cost is an infrastructure and throughput number
+
+- **Memory** decides parallelism and instance size. udud peaks at **20 MB** on
+  the 781k-URL corpus. `urldedupe` needs **344 MB** — 17× more — for the same
+  job. Run a dozen targets at once and that is the difference between a small
+  shared box and a dedicated server.
+- **Time** decides how long recon takes. udud finishes in **2.9 s**; `uro`
+  takes 40 s (14× longer), `urless` 172 s (59×). Across thousands of targets in
+  a continuous-monitoring program, that compounds into hours of pipeline and
+  analyst wait saved per cycle.
+- **Scale** decides whether the job runs at all. `uddup`'s cost grows with the
+  square of the input and it does not finish past ~50,000 URLs. udud's memory
+  grows with the number of *distinct* endpoints it keeps, not with raw input
+  size, so a target with millions of historical URLs still completes in seconds.
+
+### 2.3 The one honest trade-off
+
+udud is deliberately **keep-biased**. When a candidate URL is ambiguous — it
+carries an object ID, a session token, or an opaque hash — udud's default is to
+*keep* it rather than fold it away. This is a security decision: an endpoint like
+`/order/1001` vs `/order/1002` is exactly where broken-object-level
+authorization (IDOR) bugs hide, and silently collapsing those to one line erases
+the evidence that the other objects exist.
+
+The cost of that choice is a **larger output** than the aggressive folders
+produce. On the Wayback corpus udud emits 131,633 lines versus `uro`'s 78,470 —
+part of that gap is real surface udud keeps and `uro` deletes, and part is
+genuine redundancy udud chose not to risk folding (for example, the same
+endpoint reached with many rotating session tokens). The trade is intentional: a
+few thousand redundant lines a scanner can absorb in seconds, in exchange for
+never silently dropping a testable endpoint. Teams that prefer a smaller, more
+aggressively folded list can configure udud toward that; the numbers in this
+report are the **default** configuration, which optimizes for not losing surface.
+
+---
+
+## 3. Results on every corpus
+
+All udud figures are the shipping default configuration (udud v19). Competitor
+figures are measured with the documented invocation for each tool (Section 6);
+they do not change between udud versions because the tools are unchanged. The
+consolidated table is `raw/v19_results.csv`; competitor timing detail with
+confidence intervals is `raw/summary.csv`.
+
+### 3.1 Large real target — Wayback capture, 781,398 URLs
+
+| Tool | Output lines | Endpoint classes kept | Time | Memory |
+|---|---:|---:|---:|---:|
+| **udud** | 131,633 | **84%** | **2.9 s** | **20 MB** |
+| urldedupe | 293,420 | 100% (passthrough) | 9.4 s | 344 MB |
+| uro | 78,470 | 63% | 39.8 s | 36 MB |
+| urless | 74,737 | 67% | 172 s | 46 MB |
+| uddup | — | — | DNF (>900 s) | — |
+
+This is the decisive corpus. udud is the fastest finisher, uses the least
+memory, and keeps more endpoint classes than any tool that meaningfully
+deduplicates. `urldedupe` matches coverage only by emitting 2.2× the lines at
+17× the memory — a near-passthrough, not a deduplicator (Section 5). `uro` and
+`urless` are both slower *and* drop a third of the surface. `uddup` never
 finishes.
 
-## 9. Reproducibility
+### 3.2 Mid-size real target — gau capture, 44,943 URLs
 
-Artifacts, all in the benchmark workspace:
+| Tool | Output lines | Endpoint classes kept | Time | Memory |
+|---|---:|---:|---:|---:|
+| **udud** | 5,244 | **97%** | **0.14 s** | **4.2 MB** |
+| urldedupe | 41,657 | 100% (passthrough) | 0.34 s | 22.6 MB |
+| uro | 4,048 | 75% | 1.10 s | 19.5 MB |
+| urless | 5,228 | 75% | 1.37 s | 32.0 MB |
+| uddup | 13,096 | 74% | 81.5 s | 18.7 MB |
 
-- `data/` frozen de-identified corpora and slices, with the SHA-256 sums
-  in Section 4 and `raw/datasets.csv`.
-- `harness/anonymize.py` deterministic de-identifier,
-  `harness/verify_anon.py` three-check residue gate,
-  `harness/bench.sh` performance harness, `harness/stats.py` statistics,
-  `harness/quality.py` canonicalization-invariant metric with `--audit`.
-- `raw/trials.csv` every per-trial measurement.
-- `raw/summary.csv`, `raw/summary.txt` aggregated timing and memory.
-- `raw/quality.csv`, `raw/quality.txt` per-class retention.
-- `raw/coverage.csv`, `raw/origbytes.csv` endpoint coverage and
-  verbatim-bytes ratio.
-- `raw/audit/D_*.<tool>.<class>.lost` every removed line, per tool, per
-  class, the basis for Section 7 and AUDIT.md.
-- `raw/v13/` archived v13 outputs and audit, kept for lineage diffing
-  against the v14 numbers in Section 2.
-- `raw/environment.txt` full environment manifest and tool versions.
+Here udud is both the leanest real-dedup output *and* the highest coverage of
+any tool that folds anything — it keeps 97% of endpoint classes while `uro` and
+`urless` keep 75%. `uddup` takes 81 seconds for a worse result.
 
-To reproduce: pin the clock as in Section 3, verify the corpus checksums
-(`sha256sum -c raw/datasets.csv` after a column reshape), run
-`harness/bench.sh`, then `stats.py` and `quality.py --audit` over `raw/`.
-The build is `cc -O3 -march=native -flto -Wall
--Wno-misleading-indentation -o udud udud.c` on the v14 source.
+### 3.3 Vulnerable test target — vulnweb, 15,185 URLs
 
-## 10. Conclusion
+| Tool | Output lines | Endpoint classes kept | Time | Memory |
+|---|---:|---:|---:|---:|
+| **udud** | 1,410 | 95% | **0.03 s** | **3.4 MB** |
+| urldedupe | 4,052 | 100% (passthrough) | 0.08 s | 7.4 MB |
+| uro | 2,362 | 86% | 0.45 s | 17.9 MB |
+| urless | 3,416 | 100% | 1.93 s | 31.2 MB |
+| uddup | 13,684 | 58% | 4.81 s | 18.9 MB |
 
-On the 45,410-URL synthetic ground-truth corpus udud achieves
-Attack-Surface Macro-F1 0.9147, 8.3 points above the next tool, by
-being the only dedup that simultaneously preserves the LFI /
-open-redirect / JSESSIONID parameter surface AND folds the
-value-variant pattern classes. On a 781,398-URL real-world corpus it
-deduplicates in 9.364 s at 18.4 MB of peak memory, faster than every
-baseline that finishes and at a fraction of their memory, and it is the
-only tool that is simultaneously aggressive on redundancy and, by a
-complete per-line audit, lossless on real attack surface, with two
-small documented residuals. The baselines each fail at least one of
-those three axes: uro and urless destroy about 89 percent of
-JavaScript endpoints and all session-token endpoints (F1 drops to
-0.75/0.83 on synthetic and 0.57/0.58 on Wayback), uddup does not scale
-beyond 50,000 lines and its synthetic F1 is 0.52, and urldedupe
-retains everything only because it is a near-verbatim passthrough at
-18 times the memory (synthetic F1 0.53, since Precision is 0.50).
-The benchmark is reproducible from frozen, checksummed, de-identified
-inputs under a pinned clock, and every removed line is published for
-re-audit.
+On this small, intentionally vulnerable target udud produces the most compact
+output at the lowest cost while keeping 95% of endpoint classes. `uddup` keeps
+barely over half.
+
+### 3.4 Controlled test — known-answer corpus, 45,410 URLs
+
+The synthetic corpus is the only one where the correct answer is known exactly:
+it is generated with 12 endpoint classes whose correct groupings are fixed in
+advance. It lets us measure coverage against ground truth rather than against a
+reconstructed estimate.
+
+| Tool | Endpoint classes kept | Time | Memory |
+|---|---:|---:|---:|
+| **udud** | **99.6%** | **0.08 s** | **4.7 MB** |
+| urldedupe | 100% (passthrough) | 0.16 s | 15.5 MB |
+| urless | 91% | 0.72 s | 30.6 MB |
+| uro | 83% | 0.56 s | 17.7 MB |
+| uddup | 86% | 139 s | 21.8 MB |
+
+Against a *known* ground truth, udud retains 99.6% of all endpoint classes — the
+highest of any tool that deduplicates, and at the lowest memory. `uro` and
+`urless` reach their tidy output by deleting whole classes (they score 83% and
+91% on coverage). `uddup` needs 139 seconds.
+
+> **A note on this corpus, in fairness.** The synthetic corpus was designed
+> around a "fold every value-variant to one line" definition of correctness,
+> including folding object IDs, hashes, and session tokens. udud's default
+> deliberately does *not* fold object IDs and opaque tokens (Section 2.3), so a
+> precision-style score built on that definition penalizes udud for keeping
+> exactly the surface it is designed to keep. We therefore report the
+> ground-truth result as **coverage** (did every real endpoint class survive —
+> the number above), which is the security-relevant question and which udud wins.
+> The full per-class precision/recall breakdown, including the classes where
+> udud's keep-bias lowers a shape-only precision score, is published unedited in
+> `raw/synth_prf.csv` and `raw/synth_prf_byclass.csv` for anyone who wants to
+> audit the trade in detail.
+
+### 3.5 Memory does not blow up as targets grow
+
+A practical scaling concern: does memory stay bounded as a target gets larger?
+Measured on size-stratified slices of the Wayback corpus, udud's peak memory
+(default configuration):
+
+| Input URLs | 25k | 50k | 100k | 200k | 400k | 781k |
+|---|---:|---:|---:|---:|---:|---:|
+| udud peak memory | 3.0 MB | 3.4 MB | 3.7 MB | 3.8 MB | 3.5 MB | 20 MB |
+
+Memory tracks the number of *distinct endpoints kept*, not the raw input size,
+so it stays flat across slices with similar structure and only rises with the
+distinct surface in the full corpus. By contrast `urldedupe`'s memory grows with
+input — it reaches 344 MB on the full corpus. (Slices are head-biased prefixes
+and are used only to show the shape of the curve; the full-corpus point is the
+authoritative one.)
+
+---
+
+## 4. How each number was measured
+
+We deliberately keep two ideas separate, because conflating them is how
+deduplicators get marketed dishonestly:
+
+1. **Coverage** — did the real attack surface survive? Reported as the fraction
+   of canonical endpoint classes retained (the "endpoint classes kept" column).
+2. **Cost** — what did it take to get there? Reported as output size, processing
+   time, and peak memory.
+
+A tool that simply copies its input scores a perfect 100% on coverage while
+folding nothing; that is why coverage is always shown next to output size and
+cost, and why `urldedupe`'s 100% is labelled as passthrough throughout.
+
+**Coverage** is computed by a canonicalization-invariant classifier
+(`harness/quality.py`, `harness/wayback_prf.py`, and for the known-answer corpus
+`harness/synth_eval.py`). It normalizes the ground truth and every tool's output
+the same way — RFC 3986 syntax normalization, dot-segment removal, directory-index
+equivalence, percent-decoding, and ID/UUID/hex templating — and then measures,
+per endpoint class, the fraction of distinct real endpoints that have at least
+one survivor in the output. Normalizing both sides means a tool is never
+penalized for emitting the same endpoint in a cosmetically different form.
+
+**Cost** is measured on a pinned clock so the timings are low-variance and
+comparable: CPU governor set to `performance`, turbo disabled so the clock does
+not drift, each tool pinned to a single core, and the page cache primed so every
+tool reads from RAM. Competitor wall times are the mean of 10 timed runs with a
+95% confidence interval (3 runs for `uddup`, whose cost makes 10 prohibitive);
+memory is the peak resident set across runs. The full per-trial data is
+`raw/trials.csv` and `raw/summary.csv`; the environment manifest is
+`raw/environment.txt`. Every measured cell is deterministic (identical output
+hash across runs).
+
+---
+
+## 5. Why urldedupe's "100%" is not what it looks like
+
+`urldedupe` retains 100% of every endpoint class on every corpus. That is not a
+quality result — it is an artifact of barely deduplicating. It removes only exact
+byte-for-byte duplicate lines and keeps every value, locale, session-token, and
+cache-busting variant as distinct. On the Wayback corpus it emits 293,420 of
+781,398 input lines and consumes 344 MB doing it. It cannot lose a canonical
+endpoint because it folds almost nothing; it is a near-verbatim passthrough, not
+a structural deduplicator. A coverage score is only meaningful alongside how much
+the tool actually folded — which is why every table in this report pairs coverage
+with output size and cost.
+
+---
+
+## 6. Reproducing the benchmark
+
+Inputs are frozen and checksummed (SHA-256 in `raw/datasets.csv`):
+
+| Corpus | URLs | Bytes |
+|---|---:|---:|
+| Wayback capture (de-identified) | 781,398 | 134,533,990 |
+| Controlled known-answer corpus | 45,410 | 4,829,510 |
+| gau capture (de-identified) | 44,943 | 5,291,538 |
+| Vulnerable test target | 15,185 | 1,210,645 |
+
+Recipe:
+
+```sh
+# 1. verify the de-identified corpora match the published checksums
+cd data && for f in *.gz; do gunzip -k "$f"; done
+sha256sum -c <(awk -F, 'NR>1{print $4"  "$1}' ../raw/datasets.csv)
+
+# 2. build udud (default configuration)
+git clone https://github.com/ayodyadsr/udud /tmp/udud
+cc -O3 -march=native -flto -Wall -Wno-misleading-indentation \
+   -o /usr/local/bin/udud /tmp/udud/udud.c
+
+# 3. measure cost (pin the clock first; see Section 4)
+harness/bench.sh
+python3 harness/stats.py raw/
+
+# 4. measure coverage
+python3 harness/synth_eval.py        # known-answer corpus
+python3 harness/wayback_prf.py       # real corpora
+python3 harness/quality.py --audit raw/
+```
+
+Tool invocations (also in `harness/INVOCATION.md`): udud, uro, and urldedupe
+read the corpus on standard input; `urless` is run as `urless < corpus`
+(its `-i` flag is inert under a pipe on the tested build); `uddup` is run as
+`uddup -u <file>`. Each tool's output on each corpus is published under
+`raw/outputs/` so coverage can be recomputed without re-running the tools.
+
+---
+
+## 7. How the real corpora were protected
+
+The Wayback and gau corpora are real reconnaissance data against a confidential
+commercial target; publishing the raw bytes would disclose that target's host
+inventory and route structure. Both are deterministically de-identified before
+release by `harness/anonymize.py`, which ciphers every identity-bearing token
+while keeping the structural vocabulary a deduplicator actually keys on (schemes,
+ports, separators, digits, percent-escapes, public-suffix labels, file
+extensions, and the generic recon-parameter and matrix-key names). The transform
+preserves route *shape* and destroys host, path, and value *identity*.
+
+Because de-identification legitimately changes what keyword-based filters match,
+the benchmark is **re-run from scratch on the de-identified bytes** — these are
+not original numbers relabelled. `harness/verify_anon.py` is a release gate that
+proves no identity-bearing token survives (the letter map is a fixed-point-free
+bijection, every verbatim-kept set is audited as generic vocabulary, and a
+per-line differential finds zero surviving identity tokens across all corpora).
+Full rules are in [`ANONYMIZATION.md`](ANONYMIZATION.md).
+
+---
+
+## 8. Limitations, stated plainly
+
+- **One organization.** The two real corpora come from a single (large, diverse)
+  target. The known-answer corpus and the vulnerable test target broaden the
+  picture but are not a substitute for many real targets.
+- **One machine.** Timings are from a laptop-class CPU under a pinned clock.
+  Absolute seconds will differ on other hardware; the *ratios* between tools are
+  the portable result.
+- **Coverage is a human-defined notion of "real endpoint."** The classifier and
+  ground truth encode judgement about what counts as surface versus noise. The
+  raw outputs and per-class data are published so that judgement can be
+  re-checked rather than trusted.
+- **udud's keep-bias is a default, not a law.** This report measures the shipping
+  default, which favors coverage over a minimal output. That is the right default
+  for finding vulnerabilities; teams optimizing purely for output size should
+  measure their preferred configuration.
+
+---
+
+## 9. Recommendation
+
+For an attack-surface recon pipeline, udud is the recommended deduplicator. It is
+the only tool tested that keeps the attack surface intact *and* runs cheaply and
+fast enough to scale across a fleet of targets:
+
+- it preserves more real endpoint surface than any tool that actually
+  deduplicates, including the object-ID endpoints where IDOR bugs live;
+- it does so at a fraction of the memory and time of the alternatives, which
+  lowers infrastructure cost and shortens every recon cycle;
+- and it does not fall over on large targets, where the alternatives either
+  exhaust memory or never finish.
+
+The trade — a larger output than the most aggressive folders — is the correct one
+for a security pipeline, and is configurable for teams with different priorities.

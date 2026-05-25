@@ -33,7 +33,6 @@ http://rest.vulnweb.com/id
 http://rest.vulnweb.com/_col1
 http://rest.vulnweb.com/article.id
 http://rest.vulnweb.com/docs/vendor/polyfill.js
-http://testaspnet.vulnweb.com/ReadNews.aspx?id=2
 http://www.vulnweb.com/
 http://vulnweb.com/
 http://www.vulnweb.com/robots.txt
@@ -48,7 +47,6 @@ http://testphp.vulnweb.com/disclaimer.php
 http://testphp.vulnweb.com/login.php
 http://testphp.vulnweb.com/privacy.php
 http://testphp.vulnweb.com/robots.txt
-http://testphp.vulnweb.com/showimage.php?file=./pictures/1.jpg
 http://tetphp.vulnweb.com/cart.php
 http://tetphp.vulnweb.com/categories.php
 http://tetphp.vulnweb.com/disclaimer.php
@@ -58,6 +56,7 @@ http://tetphp.vulnweb.com/login.php
 http://tetphp.vulnweb.com/robots.txt
 http://tetphp.vulnweb.com/userinfo.php
 http://vulnweb.com/101433
+http://vulnweb.com/101435
 http://vulnweb.com/2012/09
 http://vulnweb.com/2012/09/24/hello-world
 http://vulnweb.com/2012/09/24/hello-world/feed
@@ -486,6 +485,9 @@ http://testasp.vulnweb.com/123
 http://testasp.vulnweb.com/Acunetix
 http://testasp.vulnweb.com/admin
 http://testasp.vulnweb.com/avatars/0
+http://testasp.vulnweb.com/avatars/1
+http://testasp.vulnweb.com/avatars/2
+http://testasp.vulnweb.com/avatars/3
 http://testasp.vulnweb.com/campaign/adidas-x16
 http://testasp.vulnweb.com/Login.asp
 http://testasp.vulnweb.com/logout.asp
@@ -539,10 +541,8 @@ http://testaspnet.vulnweb.com/Acunetix
 http://testaspnet.vulnweb.com/acuservice/service.asmx
 http://testaspnet.vulnweb.com/Comments.aspx
 http://testaspnet.vulnweb.com/ReadNews.aspx
-http://testaspnet.vulnweb.com/ReadNews.aspx?NewsAd=
 http://testaspnet.vulnweb.com/robots.txt
 http://testaspnet.vulnweb.com/test/vuln.cgi
-http://testaspnet.vulnweb.com/test/vuln.cgi?par1=
 http://testaspnet.vulnweb.com/test/vuln.cgi?par1=val1&par2=val2
 http://testaspnet.vulnweb.com/was.swf
 http://testaspx.vulnweb.com/
@@ -746,11 +746,15 @@ http://testphp.vulnweb.com/.well-known/gpc.json
 http://testphp.vulnweb.com/.well-known/trust.txt
 http://testphp.vulnweb.com/07JxLCs2OM.aspx
 http://testphp.vulnweb.com/1
+http://testphp.vulnweb.com/123
+http://testphp.vulnweb.com/143
 http://testphp.vulnweb.com/192.168.43.115
+http://testphp.vulnweb.com/40
+http://testphp.vulnweb.com/404
 http://testphp.vulnweb.com/404.php
+http://testphp.vulnweb.com/99
 http://testphp.vulnweb.com/?cmd=
 http://testphp.vulnweb.com/?file=
-http://testphp.vulnweb.com/?id=
 http://testphp.vulnweb.com/?input=
 http://testphp.vulnweb.com/?source=
 http://testphp.vulnweb.com/?trk=public_post-text
@@ -911,7 +915,6 @@ http://testphp.vulnweb.com/hpp?pp=12
 http://testphp.vulnweb.com/hpp/param
 http://testphp.vulnweb.com/hpp/params
 http://testphp.vulnweb.com/hpp/params.php
-http://testphp.vulnweb.com/hpp/params.php?p=
 http://testphp.vulnweb.com/hpp/params.php?p=Gxss&pp=12
 http://testphp.vulnweb.com/hpp/test.php
 http://testphp.vulnweb.com/hpp/x
@@ -936,11 +939,7 @@ http://testphp.vulnweb.com/listproduct
 http://testphp.vulnweb.com/listproduct.php
 http://testphp.vulnweb.com/listproducts
 http://testphp.vulnweb.com/listproducts.php
-http://testphp.vulnweb.com/listproducts.php?cat=1
-http://testphp.vulnweb.com/listproducts.php?artist=
-http://testphp.vulnweb.com/listproducts.php?artist=123&asdf=
 http://testphp.vulnweb.com/listproducts.php?cat=123&artist=123&asdf=ff
-http://testphp.vulnweb.com/listproducts.php?artist=6984&cat=1493
 http://testphp.vulnweb.com/listproducts.php?cat=1&page=1
 http://testphp.vulnweb.com/listproducts.php?cat=123&zfdfasdf=
 http://testphp.vulnweb.com/listproducts.php?id=1
@@ -1007,6 +1006,10 @@ http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduc
 http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct
 http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-1
 http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-1/3
+http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-2
+http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-2/3
+http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-3
+http://testphp.vulnweb.com/Mod_Rewrite_Shop/BuyProduct-3/3
 http://testphp.vulnweb.com/Mod_Rewrite_Shop/deta
 http://testphp.vulnweb.com/Mod_Rewrite_Shop/detai
 http://testphp.vulnweb.com/Mod_Rewrite_Shop/Details
@@ -1111,8 +1114,6 @@ http://testphp.vulnweb.com/searc
 http://testphp.vulnweb.com/search
 http://testphp.vulnweb.com/search.php
 http://testphp.vulnweb.com/search.php/login
-http://testphp.vulnweb.com/search.php?test=query
-http://testphp.vulnweb.com/search.php?cat=1
 http://testphp.vulnweb.com/search.php?test=query&cat=123&ppl=1fhhahwul
 http://testphp.vulnweb.com/search.php?cookie=
 http://testphp.vulnweb.com/search.php?test=&gt=
