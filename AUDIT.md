@@ -1,15 +1,22 @@
 # udud Per-Line Loss Audit (id-folding mode)
 
 > **Version note (read first).** This audit documents the **id-folding**
-> behavior of udud — the mode that collapses object IDs, hashes, and session
+> behavior of udud, the mode that collapses object IDs, hashes, and session
 > tokens to one representative. Since **v18** that is the opt-in `-F` mode, not
 > the default. The current **default** configuration (the one the headline
 > benchmark measures) is *keep-biased*: it preserves those IDs and tokens
 > instead of folding them, so it removes a strict subset of the lines audited
-> here. The audit's central finding — that the lines udud removes are redundant
-> or noise, not real attack surface — therefore holds for the default at least
+> here. The audit's central finding, that the lines udud removes are redundant
+> or noise and not real attack surface, therefore holds for the default at least
 > as strongly (the default removes fewer lines). Specific folding examples below
-> (e.g. folding `;jsessionid=` tokens) describe `-F`, not the default.
+> (for example folding `;jsessionid=` tokens) describe `-F`, not the default.
+>
+> Since **v20** the default also folds a bare route (no matrix token, no query)
+> when the same base path appears decorated with a `;matrix` token or a `?query`.
+> That removal is redundant by construction: the decorated sibling survives and
+> shares the same templated base, so no endpoint class is lost. It drops only a
+> duplicate of a route that is still represented, so the finding above holds for
+> it too.
 
 This is the standalone re-audit record behind the quality discussion in
 BENCHMARK.md. Every URL that udud (id-folding mode) removes and the

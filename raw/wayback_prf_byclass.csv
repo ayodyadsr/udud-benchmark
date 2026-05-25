@@ -1,7 +1,7 @@
 dataset,tool,klass,tp,fn,fp,precision,recall,f1
-D_example_wb.full,udud,host,443,5,131058,0.0034,0.9888,0.0067
-D_example_wb.full,udud,js,57375,434,122,0.9979,0.9925,0.9952
-D_example_wb.full,udud,html,1165,177,449,0.7218,0.8681,0.7882
+D_example_wb.full,udud,host,443,5,128836,0.0034,0.9888,0.0068
+D_example_wb.full,udud,js,57367,442,110,0.9981,0.9924,0.9952
+D_example_wb.full,udud,html,1165,177,439,0.7263,0.8681,0.7909
 D_example_wb.full,udud,srcdisc,28,0,0,1.0,1.0,1.0
 D_example_wb.full,udud,matrix,16,7,51130,0.0003,0.6957,0.0006
 D_example_wb.full,udud,param_ri,14,16,0,1.0,0.4667,0.6364
@@ -23,9 +23,9 @@ D_example_wb.full,urless,html,1289,53,549,0.7013,0.9605,0.8107
 D_example_wb.full,urless,srcdisc,28,0,0,1.0,1.0,1.0
 D_example_wb.full,urless,matrix,0,23,0,0.0,0.0,0.0
 D_example_wb.full,urless,param_ri,29,1,5,0.8529,0.9667,0.9062
-D_vulnweb.full,udud,host,119,8,1283,0.0849,0.937,0.1557
+D_vulnweb.full,udud,host,119,8,1219,0.0889,0.937,0.1625
 D_vulnweb.full,udud,js,48,1,0,1.0,0.9796,0.9897
-D_vulnweb.full,udud,html,25,6,4,0.8621,0.8065,0.8333
+D_vulnweb.full,udud,html,25,6,3,0.8929,0.8065,0.8475
 D_vulnweb.full,udud,srcdisc,14,0,0,1.0,1.0,1.0
 D_vulnweb.full,udud,matrix,0,0,0,0.0,0.0,0.0
 D_vulnweb.full,udud,param_ri,7,0,0,1.0,1.0,1.0
@@ -53,7 +53,7 @@ D_vulnweb.full,uddup,html,31,0,176,0.1498,1.0,0.2605
 D_vulnweb.full,uddup,srcdisc,5,9,1,0.8333,0.3571,0.5
 D_vulnweb.full,uddup,matrix,0,0,0,0.0,0.0,0.0
 D_vulnweb.full,uddup,param_ri,7,0,50,0.1228,1.0,0.2188
-D_example_gau.full,udud,host,125,0,5114,0.0239,1.0,0.0466
+D_example_gau.full,udud,host,125,0,4860,0.0251,1.0,0.0489
 D_example_gau.full,udud,js,56,0,0,1.0,1.0,1.0
 D_example_gau.full,udud,html,391,56,0,1.0,0.8747,0.9332
 D_example_gau.full,udud,srcdisc,0,0,0,0.0,0.0,0.0
