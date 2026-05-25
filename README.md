@@ -1,8 +1,8 @@
-# udud benchmark: URL deduplication for ASM/EASM at scale
+# udud benchmark: URL deduplication for recon at scale
 
-udud is a security-aware URL canonicalization engine. In an attack surface
-management (ASM/EASM) pipeline it sits at the front of the flow: it takes the
-raw URLs harvested for every asset in scope and reduces them to the working set
+udud is a security-aware URL canonicalization engine. In a recon pipeline it
+sits at the front of the flow: it takes the raw URLs harvested for every asset
+in scope and reduces them to the working set
 that scanners, fuzzers, and testers actually process. That one stage sets three
 things for the whole program: how many assets a worker can process per hour,
 how much memory each worker costs, and whether a sensitive endpoint survives to
@@ -19,14 +19,14 @@ real attack surface of any tool that meaningfully deduplicates.
 
 ## What this stage has to deliver, in priority order
 
-These are the properties an ASM/EASM program actually buys when it picks a
+These are the properties a recon program actually buys when it picks a
 deduplicator, ordered the way a platform owner weighs them.
 
 | # | Property | Why it decides the program | udud on the 781k capture |
 |---|---|---|---|
 | 1 | Throughput (URLs/sec) | Sets continuous-monitoring capacity per worker | 272,000 URLs/sec, fastest measured |
-| 2 | Peak memory | Sets cost per worker and how many run in parallel | 23 MB, lowest measured |
-| 3 | Stability at scale | Decides whether large assets finish at all | flat 22 MB and constant rate to 6.25M URLs |
+| 2 | Peak memory | Sets cost per worker and how many run in parallel | 13.6 MB, lowest measured |
+| 3 | Stability at scale | Decides whether large assets finish at all | flat 13.8 MB and constant rate to 6.25M URLs |
 | 4 | False merge rate | Security quality: a wrong merge hides an endpoint | 0.39% on known ground truth, lowest of any real deduplicator |
 | 5 | Streaming | Constant-memory stdin to stdout fits any pipeline | yes (`-k` / `-x`) |
 | 6 | Reduction ratio | How much redundant scanner work is removed | 83% fewer lines |
@@ -45,7 +45,7 @@ one core, page cache primed, best of three timed runs.
 
 | Tool | Throughput | Peak memory | Endpoint-class coverage | Output lines | Finishes at fleet scale |
 |---|---:|---:|---:|---:|:--:|
-| **udud** | **272k URLs/sec** | **23 MB** | **83.5%** (best real deduplicator) | 129,411 | yes |
+| **udud** | **272k URLs/sec** | **13.6 MB** | **83.5%** (best real deduplicator) | 129,411 | yes |
 | urldedupe | 159k URLs/sec | 336 MB | 100% by near-passthrough (2.3x the output) | 293,420 | memory-bound |
 | uro | 45k URLs/sec | 35 MB | 62.9% (folds away 37% of classes) | 78,470 | slow |
 | urless | 10k URLs/sec | 45 MB | 67.4% (folds away 33% of classes) | 74,737 | too slow |
@@ -58,7 +58,7 @@ How to read it:
   less memory than any of them.
 - `urldedupe` reaches 100% coverage only because it barely deduplicates. It
   removes exact byte duplicates and keeps every value, locale, and session-token
-  variant, so it emits 2.3x udud's output and needs 15x the memory. It cannot
+  variant, so it emits 2.3x udud's output and needs 24x the memory. It cannot
   drop a real endpoint because it folds almost nothing. That is a passthrough,
   not a deduplicator.
 - `uro` and `urless` produce a short, tidy list by folding away a third of the
@@ -96,7 +96,7 @@ This holds on every corpus tested. Full per-class numbers are in
 
 ## Stability at scale
 
-ASM/EASM runs continuously and some assets carry millions of historical URLs, so
+Recon runs continuously and some assets carry millions of historical URLs, so
 the deduplicator has to stay bounded as input grows. udud's memory tracks the
 number of distinct endpoints it keeps, not the size of the input. Replicating
 the 781k capture up to 6.25M URLs (the distinct surface stays the same, so this
@@ -104,16 +104,16 @@ isolates the input-size effect) keeps peak memory and throughput flat:
 
 | Input URLs | 781k | 1.56M | 3.13M | 6.25M |
 |---|---:|---:|---:|---:|
-| Peak memory | 22 MB | 22 MB | 22 MB | 22 MB |
-| Throughput | 259k/sec | 263k/sec | 266k/sec | 260k/sec |
+| Peak memory | 13.8 MB | 13.7 MB | 13.8 MB | 13.8 MB |
+| Throughput | 263k/sec | 273k/sec | 268k/sec | 270k/sec |
 
 On a genuinely larger and more diverse target (a raw 1.1M-URL Wayback capture
-with more distinct surface), udud finishes in 3.9 seconds at 40 MB. The memory
+with more distinct surface), udud finishes in 3.8 seconds at 25.3 MB. The memory
 rises only with new surface, never with raw volume. `urldedupe`'s memory instead
 grows with input and reaches 336 MB on the 781k capture; `uddup`'s cost grows
 quadratically and it stops finishing well before this scale.
 
-## What this means for an ASM/EASM program
+## What this means for a recon program
 
 - More assets per worker. The highest throughput and the lowest memory in the
   same run means a single worker covers more scope per cycle, and more workers
@@ -150,7 +150,7 @@ precision score, is published unedited under `raw/`.
 - [`ANONYMIZATION.md`](ANONYMIZATION.md): how the real corpora were
   de-identified before release, and the gate that proves no customer-identifying
   data survives.
-- `raw/`: the underlying measurement data. `raw/v20_results.csv` is the
+- `raw/`: the underlying measurement data. `raw/v21_results.csv` is the
   consolidated summary for this release; the per-trial detail sits alongside it.
 
 The corpora are frozen and checksummed and the build and run recipe is in

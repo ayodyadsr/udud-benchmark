@@ -1,17 +1,17 @@
 # udud benchmark: the full report
 
 This is the evidence behind the summary in [`README.md`](README.md). The
-question it answers is direct: for an ASM/EASM pipeline, why run udud instead of
+question it answers is direct: for a recon pipeline, why run udud instead of
 one of the four established deduplicators, and what does that choice cost or save
 across a fleet of assets?
 
 Everything here is measured on frozen, checksummed inputs and is reproducible
 from the recipe in Section 7. The raw measurement files live in `raw/`; the
-consolidated summary for this release is `raw/v20_results.csv`.
+consolidated summary for this release is `raw/v21_results.csv`.
 
 ## 1. The stage and what it has to deliver
 
-A URL deduplicator sits at the front of an attack surface management pipeline.
+A URL deduplicator sits at the front of a recon pipeline.
 It takes the raw URLs harvested for each asset in scope and reduces them to the
 working set that scanners and testers process. In a continuous program that runs
 across a large fleet, the deduplicator decides three outcomes:
@@ -43,8 +43,8 @@ input, each tool in its documented default mode.
 | Property | udud | best competitor | gap |
 |---|---|---|---|
 | Throughput | 272k URLs/sec | urldedupe 159k (near-passthrough) | 1.7x |
-| Peak memory | 23 MB | uro 35 MB | 1.5x lighter |
-| Stability at scale | flat 22 MB to 6.25M URLs | none stays flat | n/a |
+| Peak memory | 13.6 MB | uro 35 MB | 2.6x lighter |
+| Stability at scale | flat 13.8 MB to 6.25M URLs | none stays flat | n/a |
 | False merge rate (ground truth) | 0.39% | urless 8.6% (real deduper) | 22x lower |
 | Streaming | yes | uro, urldedupe yes | n/a |
 | Reduction | 83% | uro 90%, by deleting surface | see Section 4 |
@@ -81,14 +81,14 @@ Peak resident memory sets cost per worker and how many run side by side.
 
 | Tool | Peak memory (781k capture) | Relative to udud |
 |---|---:|---:|
-| **udud** | **23 MB** | 1.0x |
-| uro | 35 MB | 1.5x |
-| urless | 45 MB | 2.0x |
-| urldedupe | 336 MB | 15x |
+| **udud** | **13.6 MB** | 1.0x |
+| uro | 35 MB | 2.6x |
+| urless | 45 MB | 3.3x |
+| urldedupe | 336 MB | 24x |
 | uddup | did not finish | n/a |
 
 udud has the lowest peak memory of every tool measured. Run a dozen assets in
-parallel and the difference between 23 MB and 336 MB per job is the difference
+parallel and the difference between 13.6 MB and 336 MB per job is the difference
 between one small shared box and a dedicated server.
 
 ### 3.3 Stability at scale
@@ -100,19 +100,19 @@ effect) keeps peak memory and rate flat from 781k to 6.25M URLs:
 
 | Input URLs | 781k | 1.56M | 3.13M | 6.25M |
 |---|---:|---:|---:|---:|
-| Peak memory | 22 MB | 22 MB | 22 MB | 22 MB |
-| Throughput | 259k/sec | 263k/sec | 266k/sec | 260k/sec |
+| Peak memory | 13.8 MB | 13.7 MB | 13.8 MB | 13.8 MB |
+| Throughput | 263k/sec | 273k/sec | 268k/sec | 270k/sec |
 
 On a genuinely larger, more diverse target (the raw 1.1M-URL Wayback capture,
-more distinct surface than the de-identified release), udud finishes in 3.9
-seconds at 40 MB. Memory rises only with new surface.
+more distinct surface than the de-identified release), udud finishes in 3.8
+seconds at 25.3 MB. Memory rises only with new surface.
 
 For contrast, memory measured on size-stratified head-prefixes of the de-id
 capture:
 
 | Input URLs | 25k | 50k | 100k | 200k | 400k | 781k |
 |---|---:|---:|---:|---:|---:|---:|
-| udud peak memory | 3.3 MB | 3.6 MB | 3.9 MB | 3.9 MB | 3.9 MB | 22.7 MB |
+| udud peak memory | 3.1 MB | 3.3 MB | 3.5 MB | 3.7 MB | 3.7 MB | 13.7 MB |
 
 The curve is flat across similar-structure slices and rises only with the
 distinct surface in the full corpus. `urldedupe`'s memory instead grows with
@@ -242,9 +242,9 @@ Cost is measured on a pinned clock so timings are low-variance and comparable:
 each tool is pinned to one core, the page cache is primed so every tool reads
 from RAM, and the reported wall time is the best of repeated runs. Peak memory is
 the maximum resident set across runs. udud figures are the shipping default
-(udud v20). Competitor figures use the documented invocation for each tool
+(udud v21). Competitor figures use the documented invocation for each tool
 (Section 7) and do not change between udud versions because the tools are
-unchanged. The consolidated data is `raw/v20_results.csv`.
+unchanged. The consolidated data is `raw/v21_results.csv`.
 
 A note on epochs. The headline corpus and the three smaller corpora were
 re-measured fresh for this release on one machine; absolute seconds differ from
@@ -330,7 +330,7 @@ proves no identity-bearing token survives. Full rules are in
 
 ## 10. Recommendation
 
-For an ASM/EASM deduplication stage, udud is the recommended tool. In one run it
+For a recon deduplication stage, udud is the recommended tool. In one run it
 leads on throughput and on peak memory, holds both flat into the multi-million-URL
 range, and has the lowest false merge rate of any tool that actually
 deduplicates, including on the object-ID endpoints where access-control bugs
