@@ -45,7 +45,7 @@ one core, page cache primed, best of three timed runs.
 
 | Tool | Throughput | Peak memory | Endpoint-class coverage | Output lines | Finishes at fleet scale |
 |---|---:|---:|---:|---:|:--:|
-| **udud** | **272k URLs/sec** | **13.6 MB** | **83.5%** (best real deduplicator) | 129,411 | yes |
+| **udud** | **272k URLs/sec** | **13.6 MB** | **83.5%** (best real deduplicator) | 129,436 | yes |
 | urldedupe | 159k URLs/sec | 336 MB | 100% by near-passthrough (2.3x the output) | 293,420 | memory-bound |
 | uro | 45k URLs/sec | 35 MB | 62.9% (folds away 37% of classes) | 78,470 | slow |
 | urless | 10k URLs/sec | 45 MB | 67.4% (folds away 33% of classes) | 74,737 | too slow |
@@ -150,7 +150,7 @@ precision score, is published unedited under `raw/`.
 - [`ANONYMIZATION.md`](ANONYMIZATION.md): how the real corpora were
   de-identified before release, and the gate that proves no customer-identifying
   data survives.
-- `raw/`: the underlying measurement data. `raw/v21_results.csv` is the
+- `raw/`: the underlying measurement data. `raw/v22_results.csv` is the
   consolidated summary for this release; the per-trial detail sits alongside it.
 
 The corpora are frozen and checksummed and the build and run recipe is in

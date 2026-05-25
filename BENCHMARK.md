@@ -7,7 +7,7 @@ across a fleet of assets?
 
 Everything here is measured on frozen, checksummed inputs and is reproducible
 from the recipe in Section 7. The raw measurement files live in `raw/`; the
-consolidated summary for this release is `raw/v21_results.csv`.
+consolidated summary for this release is `raw/v22_results.csv`.
 
 ## 1. The stage and what it has to deliver
 
@@ -173,7 +173,7 @@ hide. Collapsing `/order/1001` and `/order/1002` to one line erases the evidence
 that other objects exist.
 
 The cost is a larger output than the aggressive folders produce. On the Wayback
-capture udud emits 129,411 lines against `uro`'s 78,470. Part of that gap is real
+capture udud emits 129,436 lines against `uro`'s 78,470. Part of that gap is real
 surface udud keeps and `uro` deletes; part is genuine redundancy udud chose not
 to risk folding, for example the same endpoint reached with many rotating session
 tokens. The trade is intentional: a few thousand lines a scanner absorbs in
@@ -200,7 +200,7 @@ output.
 
 | Tool | Output lines (781k) | Reduction | Coverage |
 |---|---:|---:|---:|
-| **udud** | 129,411 | 83.4% | 83.5% |
+| **udud** | 129,436 | 83.4% | 83.5% |
 | uro | 78,470 | 90.0% | 62.9% |
 | urless | 74,737 | 90.4% | 67.4% |
 | urldedupe | 293,420 | 62.4% | 100% (pass) |
@@ -242,9 +242,9 @@ Cost is measured on a pinned clock so timings are low-variance and comparable:
 each tool is pinned to one core, the page cache is primed so every tool reads
 from RAM, and the reported wall time is the best of repeated runs. Peak memory is
 the maximum resident set across runs. udud figures are the shipping default
-(udud v21). Competitor figures use the documented invocation for each tool
+(udud v22). Competitor figures use the documented invocation for each tool
 (Section 7) and do not change between udud versions because the tools are
-unchanged. The consolidated data is `raw/v21_results.csv`.
+unchanged. The consolidated data is `raw/v22_results.csv`.
 
 A note on epochs. The headline corpus and the three smaller corpora were
 re-measured fresh for this release on one machine; absolute seconds differ from
