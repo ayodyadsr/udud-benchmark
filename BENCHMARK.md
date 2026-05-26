@@ -181,6 +181,54 @@ seconds, in exchange for not silently dropping a testable endpoint. Teams that
 prefer a smaller, more aggressively folded list can run `-F`. Every number here
 is the shipping default, which optimizes for not losing surface.
 
+### 4.4 Scoring that recognizes the enumeration surface
+
+Section 4.1 measures "did the tool keep at least one representative per
+endpoint class". That is the right question when the unit of work is the
+endpoint template. It is the wrong question when the unit of work is the
+distinct object: an IDOR scan against 5,000 `/order/<UUID>` lines is 5,000
+authorization checks, not one. Under the canonical-group metric, a tool that
+keeps all 5,000 distinct UUIDs takes the 4,999 extra survivors as false
+positives and is penalized for preserving the enumeration surface.
+
+`raw/synth_prf_recon.csv` answers the second question alongside the first.
+For the three classes where each distinct value is a distinct attack target
+(`UUID`, `HEX_HASH`, `JSESSIONID`), it counts true positives at the object
+level: distinct values preserved out of distinct values in the input. Every
+other class reuses the canonical-group score unchanged, so the two metrics
+agree wherever object-level distinctness is not a recon question. Both
+files are written on every run; nothing in Section 4.1 changes.
+
+Macro F1 across all twelve classes:
+
+| Tool | Canonical-group F1 | Enumeration-surface F1 |
+|---|---:|---:|
+| **udud** | 0.748 | **0.998** |
+| urldedupe | 0.528 | 0.778 |
+| urless | 0.832 | 0.749 |
+| uro | 0.749 | 0.749 |
+| uddup | 0.518 | 0.434 |
+
+Recall on the three enumerable classes, each 5,000 distinct input values
+(higher is better; "object recall" is distinct values preserved):
+
+| Tool | UUID | HEX_HASH | JSESSIONID |
+|---|---:|---:|---:|
+| **udud** | **0.9954** | **0.9968** | **0.9998** |
+| urldedupe | 1.0000 | 1.0000 | 1.0000 |
+| urless | 0.0002 | 1.0000 | 0.0000 |
+| uro | 0.0000 | 1.0000 | 0.0000 |
+| uddup | 0.0002 | 0.0002 | 1.0000 |
+
+Two tools preserve the enumeration surface in full: `udud` and `urldedupe`.
+The cost of doing it is the differentiator: on the 781k Wayback capture
+`urldedupe` holds 336 MB peak RSS and runs at 159k URLs/sec; `udud` does the
+same retention at 13.7 MB and 260k URLs/sec (Section 3). `uro` and `urless`
+fold 4,999 of every 5,000 `UUID` and `JSESSIONID` values into a single
+witness, deleting the IDOR and session-probing surface from every downstream
+scan. The two views together are the honest reading: pick the metric that
+matches the question your pipeline is actually being asked.
+
 ## 5. Streaming, reduction, and CPU
 
 ### 5.1 Streaming
@@ -237,6 +285,15 @@ equivalence, percent-decoding, and ID/UUID/hex templating), then measures, per
 class, the fraction of distinct real endpoints with at least one survivor in the
 output. Normalizing both sides means a tool is never penalized for emitting the
 same endpoint in a cosmetically different form.
+
+`synth_eval.py` emits two scoring views on every run. The canonical-group view
+(`raw/synth_prf.csv`, `raw/synth_prf_byclass.csv`) is the Section 4.1 false
+merge metric: one true positive per endpoint class. The enumeration-surface
+view (`raw/synth_prf_recon.csv`, `raw/synth_prf_recon_byclass.csv`, Section
+4.4) is identical for non-enumerable classes; for `UUID`, `HEX_HASH`, and
+`JSESSIONID` it counts true positives at the object level. Both files are
+generated from the same single run of each tool, so the two views are
+directly comparable line by line.
 
 Cost is measured on a pinned clock so timings are low-variance and comparable:
 each tool is pinned to one core, the page cache is primed so every tool reads
