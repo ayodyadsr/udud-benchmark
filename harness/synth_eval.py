@@ -39,9 +39,35 @@ INPUT = os.path.join(HERE, "..", "data", "D_synth.full")
 TRUTH = os.path.join(HERE, "..", "data", "D_synth.truth.json")
 
 
+# RFC 3986 directory-index equivalence: /dir/index.html resolves to /dir/
+# on every common web server, so a deduper that strips the index file is
+# correct. The eval used to treat /druid/index.html and /druid as different
+# canonical groups, which counted a correct strip as a false merge. This
+# function canonicalizes both the truth groups (at load time) and the
+# tool's output paths (in classify) under the same rule. The accepted index
+# files are the ones udud's own is_index() recognises.
+_INDEX_RE = re.compile(r"/(?:index|default)\.(?:html?|php|aspx?|jsp)$", re.I)
+
+def _canon_path(p):
+    if not p:
+        return p
+    p = _INDEX_RE.sub("", p) or "/"
+    if len(p) > 1 and p.endswith("/"):
+        p = p.rstrip("/")
+    return p
+
+
 def load_truth():
     with open(TRUTH) as fh:
         t = json.load(fh)
+    # Canonicalize the GENUINE_DISTINCT list so that index-file forms
+    # collapse to their directory form; recompute n_canonical_groups in
+    # case the original list contained both /dir/ and /dir/index.html.
+    gd = t.get("GENUINE_DISTINCT")
+    if gd and "groups" in gd:
+        canon = sorted({_canon_path(g) for g in gd["groups"]})
+        gd["groups"] = canon
+        gd["n_canonical_groups"] = len(canon)
     return t
 
 
@@ -151,8 +177,10 @@ def classify(url):
     if path in srcdisc:
         return ("SRCDISC", path)
     # GENUINE_DISTINCT: any other path in the synth host - fall through
-    # to the ground-truth list of 200 paths.
-    return ("GENUINE_DISTINCT", path)
+    # to the ground-truth list. Canonicalize under the same index/slash
+    # rule load_truth() applies so a tool that emits /dir matches a truth
+    # entry of /dir/index.html (RFC 3986 directory-index equivalence).
+    return ("GENUINE_DISTINCT", _canon_path(path))
 
 
 def evaluate_output(out_path, truth):

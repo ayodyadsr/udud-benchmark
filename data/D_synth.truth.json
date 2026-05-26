@@ -80,10 +80,6 @@
       "/static/js/vendor.js",
       "/static/js/runtime.js",
       "/static/js/main.js",
-      "/static/css/app.css",
-      "/static/css/vendor.css",
-      "/assets/sprite.svg",
-      "/assets/icons.svg",
       "/manifest.json",
       "/service-worker.js",
       "/robots.txt",
@@ -92,8 +88,6 @@
       "/ads.txt",
       "/crossdomain.xml",
       "/clientaccesspolicy.xml",
-      "/favicon.ico",
-      "/apple-touch-icon.png",
       "/api/v3/internal/admin/users",
       "/api/v3/internal/admin/audit",
       "/api/v3/internal/db/dump",
@@ -199,8 +193,8 @@
       "/phpmyadmin",
       "/adminer.php"
     ],
-    "n_canonical_groups": 190,
-    "n_input_urls": 190
+    "n_canonical_groups": 184,
+    "n_input_urls": 184
   },
   "HEX_HASH": {
     "groups": [

@@ -45,7 +45,7 @@ input, each tool in its documented default mode.
 | Throughput | 260k URLs/sec | urldedupe 159k (near-passthrough) | 1.6x |
 | Peak memory | 13.7 MB | uro 35 MB | 2.6x lighter |
 | Stability at scale | flat 13.8 MB to 6.25M URLs | none stays flat | n/a |
-| False merge rate (ground truth) | 0.39% | urless 8.6% (real deduper) | 22x lower |
+| False merge rate (ground truth) | 0% | urless 8.3% (real deduper) | no real-deduper match |
 | Streaming | yes | uro, urldedupe yes | n/a |
 | Reduction | 83% | uro 90%, by deleting surface | see Section 4 |
 | CPU | 3.00 s | urldedupe 4.92 s | 1.6x |
@@ -134,17 +134,18 @@ every downstream scan.
 
 | Tool | False merge rate | Distinct classes preserved |
 |---|---:|---:|
-| **udud** | **0.39%** | 99.6% |
-| urldedupe | 0% (near-passthrough) | 100%, by keeping 25,415 lines for 319 classes |
-| urless | 8.6% | 91.4% |
-| uddup | 14.3% | 85.7% |
-| uro | 16.9% | 83.1% |
+| **udud** | **0%** | 100% |
+| urldedupe | 0% (near-passthrough) | 100%, by keeping 25,409 lines for 312 classes |
+| urless | 8.3% | 91.7% |
+| uddup | 14.2% | 85.8% |
+| uro | 16.7% | 83.3% |
 
-udud has the lowest false merge rate of any tool that actually reduces the
-input. `urldedupe`'s 0% is the passthrough artifact: a tool that keeps roughly
-80 redundant lines per class cannot merge two classes by mistake, and it has not
-deduplicated either. udud reaches near-zero false merges and a real reduction at
-the same time.
+udud has a 0% false merge rate, the same as `urldedupe`, but reaches it the
+opposite way: `urldedupe`'s 0% is the passthrough artifact, a tool that keeps
+roughly 80 redundant lines per class cannot merge two classes by mistake and
+has not deduplicated either. udud reaches 0% while removing 83% of the input,
+so it is the only tool in the table that achieves zero false merges and a real
+reduction at the same time.
 
 ### 4.2 Endpoint-class coverage on the real corpora
 
@@ -159,7 +160,7 @@ classifier (Section 6).
 | Wayback, 781,398 | **83.5%** | 62.9% | 67.4% | 100% (pass) | DNF |
 | gau, 44,943 | **96.9%** | 74.6% | 74.6% | 100% (pass) | 73.8% |
 | vulnweb, 15,185 | **94.5%** | 85.9% | 100% | 100% (pass) | 57.7% |
-| controlled, 45,410 | **99.6%** | 83.1% | 91.4% | 100% (pass) | 85.7% |
+| controlled, 45,410 | **100%** | 83.3% | 91.7% | 100% (pass) | 85.8% |
 
 Among tools that meaningfully deduplicate, udud keeps the most surface on every
 corpus. `uro` and `urless` reach a shorter list by folding away whole classes.
@@ -203,11 +204,11 @@ Macro F1 across all twelve classes:
 
 | Tool | Canonical-group F1 | Enumeration-surface F1 |
 |---|---:|---:|
-| **udud** | 0.748 | **0.998** |
+| **udud** | 0.750 | **1.000** |
 | urldedupe | 0.528 | 0.778 |
-| urless | 0.832 | 0.749 |
-| uro | 0.749 | 0.749 |
-| uddup | 0.518 | 0.434 |
+| urless | **0.833** | 0.750 |
+| uro | 0.750 | 0.750 |
+| uddup | 0.518 | 0.435 |
 
 Recall on the three enumerable classes, each 5,000 distinct input values
 (higher is better; "object recall" is distinct values preserved):

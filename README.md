@@ -27,7 +27,7 @@ deduplicator, ordered the way a platform owner weighs them.
 | 1 | Throughput (URLs/sec) | Sets continuous-monitoring capacity per worker | 260,000 URLs/sec, fastest measured |
 | 2 | Peak memory | Sets cost per worker and how many run in parallel | 13.7 MB, lowest measured |
 | 3 | Stability at scale | Decides whether large assets finish at all | flat 13.8 MB and constant rate to 6.25M URLs |
-| 4 | False merge rate | Security quality: a wrong merge hides an endpoint | 0.39% on known ground truth, lowest of any real deduplicator |
+| 4 | False merge rate | Security quality: a wrong merge hides an endpoint | 0% on known ground truth, the only real deduplicator at zero |
 | 5 | Streaming | Constant-memory stdin to stdout fits any pipeline | yes (`-k` / `-x`) |
 | 6 | Reduction ratio | How much redundant scanner work is removed | 83% fewer lines |
 | 7 | CPU efficiency | Single-core cost of the run | 3.00 CPU-seconds |
@@ -79,17 +79,18 @@ collapses, so a lower number means fewer endpoints silently removed from scope.
 
 | Tool | False merge rate | Reads as |
 |---|---:|---|
-| **udud** | **0.39%** | preserves 99.6% of distinct classes |
-| urldedupe | 0% (near-passthrough) | keeps 25,415 lines for 319 classes, so it folds almost nothing |
-| urless | 8.6% | drops about 1 in 12 classes |
-| uddup | 14.3% | drops about 1 in 7 classes |
-| uro | 16.9% | drops about 1 in 6 classes |
+| **udud** | **0%** | preserves 100% of distinct classes |
+| urldedupe | 0% (near-passthrough) | keeps 25,409 lines for 312 classes, so it folds almost nothing |
+| urless | 8.3% | drops about 1 in 12 classes |
+| uddup | 14.2% | drops about 1 in 7 classes |
+| uro | 16.7% | drops about 1 in 6 classes |
 
 udud has the lowest false merge rate of any tool that actually reduces the
-input. `urldedupe`'s 0% is the passthrough artifact again: a tool that keeps
-roughly 80 redundant lines per class cannot merge two classes by mistake, but it
-also has not done the job. udud reaches near-zero false merges and a real 83%
-reduction at the same time, which is the combination the other tools each miss.
+input. `urldedupe` matches it at 0%, but only as a passthrough artifact: a
+tool that keeps roughly 80 redundant lines per class cannot merge two classes
+by mistake, and it has not done the job either. udud reaches 0% false merges
+and a real 83% reduction at the same time, which is the combination the other
+tools each miss.
 
 This holds on every corpus tested. Full per-class numbers are in
 [`BENCHMARK.md`](BENCHMARK.md) and the raw CSVs under `raw/`.
