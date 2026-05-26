@@ -45,6 +45,50 @@ def load_truth():
     return t
 
 
+# ---- enumeration-aware scoring (v2 extension) ----
+#
+# The existing canonical-group metric (synth_eval.csv + synth_prf*.csv) treats
+# every keep BEYOND the first as a false positive. That fairly answers the
+# question "did the tool keep at least one representative per endpoint
+# template?". It DOES NOT answer the recon-pipeline question "did the tool
+# preserve enumeration paths whose distinct values each represent a distinct
+# attack target (IDOR/object enumeration, rotating-session probing, content-
+# addressed lookup)?". For those classes, every distinct VALUE in the input is
+# its own surface element, and folding 5000 distinct UUIDs to one witness
+# DELETES 4999 attack targets from every downstream scan.
+#
+# ENUMERABLE_CLASSES lists the classes where each distinct value is its own
+# surface element. For those classes the recon-aware view uses object-level
+# recall (distinct values kept / distinct values in input). For every other
+# class the recon-aware view reuses the existing canonical-group view, so the
+# two metrics agree on collapsible and 1:1 surface classes.
+#
+# The choice is per-class and per-dataset: a /product/<N> path under a
+# content-section parent is a templated listing where folding is correct
+# (NUMERIC_ID stays OUT of enumerable here, matching udud's default-mode
+# content-section template). A /order/<uuid> path under no content-section
+# parent IS an enumerable object surface (UUID stays IN). HEX_HASH and
+# JSESSIONID are kept enumerable because the synth corpus uses them as
+# distinct object identifiers and rotating session tokens respectively,
+# both of which a recon pipeline tests value-by-value.
+ENUMERABLE_CLASSES = {"UUID", "HEX_HASH", "JSESSIONID"}
+
+# extract the object value for an enumerable class so two outputs that keep
+# the same {uuid, hex, jsessionid} value collapse to one. used only for the
+# recon-aware count; the canonical view never calls this.
+def object_value(klass, url):
+    if klass == "UUID":
+        m = re.search(r"/order/([0-9a-fA-F-]{32,36})", url)
+        return m.group(1).lower() if m else None
+    if klass == "HEX_HASH":
+        m = re.search(r"/asset/([0-9a-fA-F]{64})", url)
+        return m.group(1).lower() if m else None
+    if klass == "JSESSIONID":
+        m = re.search(r";jsessionid=([^;/?&]+)", url, re.I)
+        return m.group(1) if m else None
+    return None
+
+
 def classify(url):
     try:
         p = urlparse(url.strip())
@@ -112,9 +156,14 @@ def classify(url):
 
 
 def evaluate_output(out_path, truth):
-    """Return per-class {surviving_groups, kept_urls, total_groups}."""
+    """Return per-class {surviving_groups, kept_urls, total_groups,
+    distinct_values_kept}. distinct_values_kept is the count of unique
+    object values seen in the output for ENUMERABLE_CLASSES (used by the
+    recon-aware view); for non-enumerable classes it equals surviving
+    groups so the two views agree."""
     by_class = {}                                # class -> set(group_id)
     kept_urls = {}                               # class -> count
+    by_value = {}                                # class -> set(object_value)
 
     with open(out_path, "rb") as fh:
         for line in fh:
@@ -134,17 +183,24 @@ def evaluate_output(out_path, truth):
                     continue
             by_class.setdefault(klass, set()).add(gid)
             kept_urls[klass] = kept_urls.get(klass, 0) + 1
+            if klass in ENUMERABLE_CLASSES:
+                ov = object_value(klass, url)
+                if ov is not None:
+                    by_value.setdefault(klass, set()).add(ov)
 
     out = {}
     for klass, meta in truth.items():
         total = meta["n_canonical_groups"]
         kept = len(by_class.get(klass, set()))
         urls_kept = kept_urls.get(klass, 0)
+        distinct_values = (len(by_value.get(klass, set()))
+                           if klass in ENUMERABLE_CLASSES else kept)
         out[klass] = {
             "total_groups": total,
             "surviving_groups": kept,
             "destroyed_groups": total - kept,
             "kept_urls": urls_kept,
+            "distinct_values_kept": distinct_values,
             "recall": kept / total if total else 0.0,
             "over_keep_ratio": (urls_kept / kept) if kept else None,
             "lossless": (kept == total),
@@ -248,10 +304,85 @@ def aggregate_prf(per_class):
     }
 
 
+def count_input_object_values(input_path):
+    """Count distinct object values present in the input for every
+    ENUMERABLE_CLASSES member. Returns {class: n_distinct_input_values}.
+    This is the denominator for object-level recall."""
+    seen = {k: set() for k in ENUMERABLE_CLASSES}
+    with open(input_path, "rb") as fh:
+        for line in fh:
+            try:
+                url = line.decode("utf-8", "replace").strip()
+            except Exception:
+                continue
+            if not url:
+                continue
+            label = classify(url)
+            if not label:
+                continue
+            klass, _ = label
+            if klass in ENUMERABLE_CLASSES:
+                ov = object_value(klass, url)
+                if ov is not None:
+                    seen[klass].add(ov)
+    return {k: len(v) for k, v in seen.items()}
+
+
+def aggregate_prf_recon(per_class, input_distinct):
+    """Recon-aware aggregation. Identical to aggregate_prf for non-
+    enumerable classes; for ENUMERABLE_CLASSES the unit is one distinct
+    object value (not one canonical group), and only TRUE duplicate
+    emissions of the same value count as FP.
+
+    For an enumerable class:
+      TP_recon = distinct values kept in output
+      FN_recon = distinct values in input that did NOT survive
+      FP_recon = kept_urls - distinct values kept   (same-value duplicates)
+      Recall   = kept_distinct / input_distinct     "did the enumeration survive?"
+      Precision= kept_distinct / kept_urls          "is the output free of dupes?"
+
+    A tool that folds 5000 distinct UUIDs to one canonical witness gets
+    recall = 1/5000 here (the recon-honest score), even though it scores
+    1.0 under the canonical-group view in aggregate_prf."""
+    tp_t = fn_t = fp_t = kept_t = 0
+    p_sum = r_sum = f_sum = 0.0
+    n_classes = 0
+    per = {}
+    for klass, v in per_class.items():
+        if klass in ENUMERABLE_CLASSES:
+            in_distinct = input_distinct.get(klass, v["total_groups"])
+            tp = v["distinct_values_kept"]
+            fn = max(0, in_distinct - tp)
+            fp = max(0, v["kept_urls"] - tp)
+        else:
+            tp = v["surviving_groups"]
+            fn = v["destroyed_groups"]
+            fp = v["kept_urls"] - tp
+        p, r, f = _prf(tp, fn, fp)
+        per[klass] = {"tp": tp, "fn": fn, "fp": fp,
+                      "precision": p, "recall": r, "f1": f}
+        tp_t += tp; fn_t += fn; fp_t += fp; kept_t += v["kept_urls"]
+        p_sum += p; r_sum += r; f_sum += f
+        n_classes += 1
+    p_mi, r_mi, f_mi = _prf(tp_t, fn_t, fp_t)
+    p_ma = p_sum / n_classes if n_classes else 0.0
+    r_ma = r_sum / n_classes if n_classes else 0.0
+    f_ma = f_sum / n_classes if n_classes else 0.0
+    return {
+        "per_class": per,
+        "tp": tp_t, "fn": fn_t, "fp": fp_t,
+        "kept_urls": kept_t,
+        "canonical_groups": tp_t + fn_t,
+        "micro_precision": p_mi, "micro_recall": r_mi, "micro_f1": f_mi,
+        "macro_precision": p_ma, "macro_recall": r_ma, "macro_f1": f_ma,
+    }
+
+
 def main():
     truth = load_truth()
     out_dir = os.path.join(HERE, "..", "raw", "outputs")
     os.makedirs(out_dir, exist_ok=True)
+    input_distinct = count_input_object_values(INPUT)
 
     results = {}
     for tool in ["udud", "uro", "urldedupe", "urless", "uddup"]:
@@ -323,6 +454,55 @@ def main():
                     v["precision"], v["recall"], v["f1"],
                 ))
     print("wrote %s" % prf_class_csv)
+
+    # ---- recon-aware view ---------------------------------------------
+    # Same shape as the strict files above, but for ENUMERABLE_CLASSES the
+    # unit is one distinct object value, not one canonical group. A tool
+    # that preserves IDOR enumeration (every distinct UUID/HEX/JSESSIONID
+    # survives) scores high here; a tool that folds all 5000 distinct
+    # UUIDs into one canonical witness scores ~0. Non-enumerable classes
+    # are identical to the strict view, so the two metrics agree wherever
+    # value-level distinctness is not a recon question.
+    prf_recon_csv = os.path.join(HERE, "..", "raw", "synth_prf_recon.csv")
+    with open(prf_recon_csv, "w") as fh:
+        fh.write("tool,canonical_groups,tp,fn,fp,kept_urls,"
+                 "micro_precision,micro_recall,micro_f1,"
+                 "macro_precision,macro_recall,macro_f1\n")
+        for tool, per in results.items():
+            if per is None:
+                fh.write("%s,DNF,,,,,,,,,,\n" % tool)
+                continue
+            a = aggregate_prf_recon(per, input_distinct)
+            fh.write("%s,%d,%d,%d,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n" % (
+                tool, a["canonical_groups"], a["tp"], a["fn"], a["fp"],
+                a["kept_urls"],
+                a["micro_precision"], a["micro_recall"], a["micro_f1"],
+                a["macro_precision"], a["macro_recall"], a["macro_f1"],
+            ))
+            print("%-10s  recon  micro R=%.4f P=%.4f F1=%.4f   macro R=%.4f P=%.4f F1=%.4f" % (
+                tool,
+                a["micro_recall"], a["micro_precision"], a["micro_f1"],
+                a["macro_recall"], a["macro_precision"], a["macro_f1"],
+            ))
+    print("wrote %s" % prf_recon_csv)
+
+    prf_recon_byclass_csv = os.path.join(HERE, "..", "raw",
+                                         "synth_prf_recon_byclass.csv")
+    with open(prf_recon_byclass_csv, "w") as fh:
+        fh.write("tool,klass,enumerable,tp,fn,fp,precision,recall,f1\n")
+        for tool, per in results.items():
+            if per is None:
+                continue
+            a = aggregate_prf_recon(per, input_distinct)
+            for klass in sorted(a["per_class"].keys()):
+                v = a["per_class"][klass]
+                fh.write("%s,%s,%s,%d,%d,%d,%.4f,%.4f,%.4f\n" % (
+                    tool, klass,
+                    "yes" if klass in ENUMERABLE_CLASSES else "no",
+                    v["tp"], v["fn"], v["fp"],
+                    v["precision"], v["recall"], v["f1"],
+                ))
+    print("wrote %s" % prf_recon_byclass_csv)
 
 
 if __name__ == "__main__":
