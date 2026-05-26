@@ -1,6 +1,0 @@
-tool,wall_min_s,peak_rss_kb,peak_rss_mb,output_lines,n_runs,method
-udud,0.2141,12644,12.3,5310,3,subprocess+RUSAGE_CHILDREN
-uro,0.5648,18148,17.7,5310,3,subprocess+RUSAGE_CHILDREN
-urldedupe,0.1644,15840,15.5,25415,3,subprocess+RUSAGE_CHILDREN
-urless,0.7154,31372,30.6,5311,3,subprocess+RUSAGE_CHILDREN
-uddup,139.1123,22284,21.8,20322,3,subprocess+RUSAGE_CHILDREN

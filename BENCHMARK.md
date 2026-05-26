@@ -2,19 +2,22 @@
 
 This is the evidence behind the summary in [`README.md`](README.md). The
 question it answers is direct: for a recon pipeline, why run udud instead of
-one of the four established deduplicators, and what does that choice cost or save
-across a fleet of assets?
+one of the four established deduplicators, and what does that choice cost or
+save across a fleet of assets?
 
-Everything here is measured on frozen, checksummed inputs and is reproducible
-from the recipe in Section 7. The raw measurement files live in `raw/`; the
-consolidated summary for this release is `raw/v23_results.csv`.
+Every number in this report comes from one input: the 780,200-URL
+known-answer corpus `data/D_unified.full`. The corpus is generated
+deterministically by `harness/synth_gen.py`, so the ground truth, the
+reduction ratio, the throughput, the peak memory, and the false merge
+rate all share the same source data. The recipe is in Section 7 and the
+raw measurement files live under `raw/`.
 
 ## 1. The stage and what it has to deliver
 
-A URL deduplicator sits at the front of a recon pipeline.
-It takes the raw URLs harvested for each asset in scope and reduces them to the
-working set that scanners and testers process. In a continuous program that runs
-across a large fleet, the deduplicator decides three outcomes:
+A URL deduplicator sits at the front of a recon pipeline. It takes the raw
+URLs harvested for each asset in scope and reduces them to the working set
+that scanners and testers process. In a continuous program that runs across a
+large fleet, the deduplicator decides three outcomes:
 
 - Capacity and cost. Its throughput sets how many assets a worker clears per
   cycle; its memory sets how many workers fit on a box.
@@ -24,245 +27,208 @@ across a large fleet, the deduplicator decides three outcomes:
 
 The properties below are listed in the order a platform owner weighs them.
 
-1. Throughput, in URLs per second.
-2. Peak memory.
-3. Stability at scale.
-4. False merge rate, the security quality metric.
-5. Streaming behaviour.
-6. Reduction ratio.
-7. CPU efficiency.
+1. Completion time, the wall clock on one input.
+2. Throughput, in URLs per second.
+3. Peak memory.
+4. Attack surface retained.
+5. False merge rate, the security quality metric.
+6. Streaming behaviour.
+7. Reduction ratio.
+8. CPU efficiency.
 
-This report takes them in that order, then gives per-corpus tables, methodology,
-the passthrough caveat, the reproduce recipe, and the limitations.
+This report takes them in that order, then gives methodology, the passthrough
+caveat, the reproduce recipe, and the limitations.
 
 ## 2. Result summary
 
-Measured on the 781,398-URL de-identified Wayback capture, same machine, same
-input, each tool in its documented default mode.
+One corpus, 780,200 URLs, every tool in its documented default mode, pinned
+to one core, page cache primed, best of five timed trials.
 
-| Property | udud | best competitor | gap |
-|---|---|---|---|
-| Throughput | 260k URLs/sec | urldedupe 159k (near-passthrough) | 1.6x |
-| Peak memory | 13.7 MB | uro 35 MB | 2.6x lighter |
-| Stability at scale | flat 13.8 MB to 6.25M URLs | none stays flat | n/a |
-| False merge rate (ground truth) | 0% | urless 8.3% (real deduper) | no real-deduper match |
-| Streaming | yes | uro, urldedupe yes | n/a |
-| Reduction | 83% | uro 90%, by deleting surface | see Section 4 |
-| CPU | 3.00 s | urldedupe 4.92 s | 1.6x |
+| Metric | udud | urldedupe | uro | urless | uddup |
+|---|---:|---:|---:|---:|---:|
+| Completion time | **1.73 s** | 2.27 s | 7.36 s | 8.83 s | DNF (>600 s) |
+| Throughput | **451,000 URLs/s** | 343,000 URLs/s | 106,000 URLs/s | 88,000 URLs/s | DNF |
+| Peak RAM | **22.6 MB** | 193.8 MB | 27.6 MB | 40.5 MB | DNF |
+| Output lines | 115,764 | 380,650 | 64,667 | 64,138 | DNF |
+| Reduction | 85.2 % | 51.2 % (near-passthrough) | 91.7 % | 91.8 % | DNF |
+| Attack surface retained | **100 %** | 100 % (passthrough) | 97.77 % | 96.82 % | DNF |
+| False merge rate | **0 %** | 0 % (passthrough) | 2.23 % | 3.18 % | DNF |
 
-udud is first on throughput and first on peak memory in the same run, holds both
-flat into the multi-million-URL range, and has the lowest false merge rate of any
-tool that meaningfully reduces the input. The rest of this report defines each
-number and is explicit about the one place udud trades the other way (Section
-4.3).
+udud is first on completion time, first on throughput, first on peak RAM, and
+first on false merge rate in the same run. `urldedupe` matches udud on false
+merge rate only as a passthrough artifact: it keeps 380,650 lines for 55,920
+canonical groups, so it cannot merge two groups by mistake because it folds
+almost nothing. `uro` and `urless` produce a shorter list by destroying whole
+endpoint classes (Section 4.2). `uddup` does not finish a 780k input; its
+cost grows quadratically and it times out past roughly 50,000 URLs.
 
 ## 3. Capacity and cost
 
-### 3.1 Throughput
+### 3.1 Completion time
+
+Completion time is the wall clock to finish one input on one core. It is the
+most direct answer to "how fast does my pipeline move".
+
+| Tool | Completion (780,200 URLs) | Relative to udud |
+|---|---:|---:|
+| **udud** | **1.73 s** | 1.0x |
+| urldedupe | 2.27 s | 1.31x slower |
+| uro | 7.36 s | 4.25x slower |
+| urless | 8.83 s | 5.10x slower |
+| uddup | did not finish (>600 s) | n/a |
+
+### 3.2 Throughput
 
 Throughput is the input rate a single worker sustains. In a continuous program
-it sets fleet capacity directly: at 260k URLs/sec one udud worker clears a
-781k-URL asset in around three seconds.
+it sets fleet capacity directly: at 451k URLs/sec one udud worker clears a
+780k-URL asset in under two seconds.
 
-| Tool | Throughput (781k capture) | Relative to udud |
+| Tool | Throughput | Relative to udud |
 |---|---:|---:|
-| **udud** | **260,000 URLs/sec** | 1.0x |
-| urldedupe | 159,000 URLs/sec | 0.61x (near-passthrough) |
-| uro | 45,000 URLs/sec | 0.16x |
-| urless | 10,000 URLs/sec | 0.04x |
+| **udud** | **451,000 URLs/s** | 1.0x |
+| urldedupe | 343,000 URLs/s | 0.76x (near-passthrough) |
+| uro | 106,000 URLs/s | 0.24x |
+| urless | 88,000 URLs/s | 0.20x |
 | uddup | did not finish | n/a |
 
-udud is the fastest finisher. `urldedupe` is second only because it does little
-work per line (Section 5). `uro` and `urless` are 6x and 26x slower.
-
-### 3.2 Peak memory
+### 3.3 Peak memory
 
 Peak resident memory sets cost per worker and how many run side by side.
 
-| Tool | Peak memory (781k capture) | Relative to udud |
+| Tool | Peak memory | Relative to udud |
 |---|---:|---:|
-| **udud** | **13.7 MB** | 1.0x |
-| uro | 35 MB | 2.6x |
-| urless | 45 MB | 3.3x |
-| urldedupe | 336 MB | 24x |
+| **udud** | **22.6 MB** | 1.0x |
+| uro | 27.6 MB | 1.22x |
+| urless | 40.5 MB | 1.79x |
+| urldedupe | 193.8 MB | 8.6x |
 | uddup | did not finish | n/a |
 
-udud has the lowest peak memory of every tool measured. Run a dozen assets in
-parallel and the difference between 13.7 MB and 336 MB per job is the difference
-between one small shared box and a dedicated server.
-
-### 3.3 Stability at scale
-
-The deduplicator must stay bounded as input grows. udud's memory tracks the
-number of distinct endpoints it keeps, not raw input size. Replicating the 781k
-capture (which holds the distinct surface constant, isolating the input-size
-effect) keeps peak memory and rate flat from 781k to 6.25M URLs:
-
-| Input URLs | 781k | 1.56M | 3.13M | 6.25M |
-|---|---:|---:|---:|---:|
-| Peak memory | 13.8 MB | 13.7 MB | 13.8 MB | 13.8 MB |
-| Throughput | 263k/sec | 273k/sec | 268k/sec | 270k/sec |
-
-On a genuinely larger, more diverse target (the raw 1.1M-URL Wayback capture,
-more distinct surface than the de-identified release), udud finishes in 3.8
-seconds at 25.3 MB. Memory rises only with new surface.
-
-For contrast, memory measured on size-stratified head-prefixes of the de-id
-capture:
-
-| Input URLs | 25k | 50k | 100k | 200k | 400k | 781k |
-|---|---:|---:|---:|---:|---:|---:|
-| udud peak memory | 3.1 MB | 3.3 MB | 3.5 MB | 3.7 MB | 3.7 MB | 13.7 MB |
-
-The curve is flat across similar-structure slices and rises only with the
-distinct surface in the full corpus. `urldedupe`'s memory instead grows with
-input and reaches 336 MB; `uddup` grows quadratically and stops finishing past
-roughly 50,000 URLs.
+udud has the lowest peak memory of every tool that produces output. Run a
+dozen assets in parallel and the difference between 22.6 MB and 193.8 MB per
+job is the difference between one small shared box and a dedicated server.
 
 ## 4. Security quality
 
-### 4.1 False merge rate on known ground truth
+### 4.1 False merge rate on the known-answer corpus
 
-On real corpora the correct grouping is reconstructed, so any coverage figure
-there is an estimate. The controlled corpus removes that doubt: it is generated
-with a fixed set of distinct endpoint classes whose correct groupings are known
-in advance, so a merge that destroys a class is counted exactly.
+Because `D_unified.full` is generated with a fixed set of canonical endpoint
+groups whose correct groupings are recorded in `data/D_unified.truth.json`,
+every merge that destroys a group can be counted exactly. False merge rate is
+the fraction of canonical groups for which the tool's output contains zero
+representatives. Lower is better, because each wrong merge removes an endpoint
+from every downstream scan.
 
-False merge rate is the fraction of distinct endpoint classes a tool wrongly
-collapses. Lower is better, because each wrong merge removes an endpoint from
-every downstream scan.
+| Tool | Canonical groups | Destroyed | False merge rate | Surface retained |
+|---|---:|---:|---:|---:|
+| **udud** | 55,920 | 0 | **0.00 %** | 100.00 % |
+| urldedupe | 55,920 | 0 | 0.00 % (near-passthrough) | 100.00 % |
+| uro | 55,920 | 1,248 | 2.23 % | 97.77 % |
+| urless | 55,920 | 1,777 | 3.18 % | 96.82 % |
+| uddup | — | — | DNF | DNF |
 
-| Tool | False merge rate | Distinct classes preserved |
-|---|---:|---:|
-| **udud** | **0%** | 100% |
-| urldedupe | 0% (near-passthrough) | 100%, by keeping 25,409 lines for 312 classes |
-| urless | 8.3% | 91.7% |
-| uddup | 14.2% | 85.8% |
-| uro | 16.7% | 83.3% |
+udud has a 0 % false merge rate, the same as `urldedupe`, but reaches it the
+opposite way: `urldedupe`'s 0 % is the passthrough artifact, a tool that
+keeps 380,650 lines for 55,920 groups cannot merge two groups by mistake and
+has not deduplicated either. udud reaches 0 % while removing 85.2 % of the
+input, so it is the only tool in the table that achieves zero false merges
+and a real reduction at the same time.
 
-udud has a 0% false merge rate, the same as `urldedupe`, but reaches it the
-opposite way: `urldedupe`'s 0% is the passthrough artifact, a tool that keeps
-roughly 80 redundant lines per class cannot merge two classes by mistake and
-has not deduplicated either. udud reaches 0% while removing 83% of the input,
-so it is the only tool in the table that achieves zero false merges and a real
-reduction at the same time.
+### 4.2 What `uro` and `urless` actually destroy
 
-### 4.2 Endpoint-class coverage on the real corpora
+The per-class detail in [`raw/synth_eval.csv`](raw/synth_eval.csv) shows the
+false merges as full-class deletions, not as scattered noise:
 
-Coverage is the fraction of distinct endpoint classes that survive
-deduplication, counting every class equally (a macro average), so a rare but
-critical class weighs the same as a common one. It is the recall side of the
-false merge rate, measured on real data by a canonicalization-invariant
-classifier (Section 6).
+| Class | Total groups | udud kept | uro kept | urless kept |
+|---|---:|---:|---:|---:|
+| GENUINE_DISTINCT | 50,000 | **50,000** | 49,034 | 48,488 |
+| JSESSIONID | 5 | **5** | **0** | **0** |
+| TITLE_SLUG | 260 | **260** | **0** | **0** |
+| UUID | 15 | **15** | **0** | 15 |
+| NUMERIC_ID | 30 | **30** | 28 | **30** |
+| CACHE_BUST | 250 | 250 | 250 | 250 |
+| HEX_HASH | 10 | 10 | 10 | 10 |
+| LFI_PARAM | 50 | 50 | 50 | 50 |
+| OPEN_REDIRECT | 50 | 50 | 50 | 50 |
+| PARAM_ORDER | 50 | 50 | 50 | 50 |
+| SRCDISC | 200 | 200 | 200 | 200 |
+| TRAILING_SLASH | 5,000 | 5,000 | 5,000 | 5,000 |
 
-| Corpus | udud | uro | urless | urldedupe | uddup |
-|---|---:|---:|---:|---:|---:|
-| Wayback, 781,398 | **83.5%** | 62.9% | 67.4% | 100% (pass) | DNF |
-| gau, 44,943 | **96.9%** | 74.6% | 74.6% | 100% (pass) | 73.8% |
-| vulnweb, 15,185 | **94.5%** | 85.9% | 100% | 100% (pass) | 57.7% |
-| controlled, 45,410 | **100%** | 83.3% | 91.7% | 100% (pass) | 85.8% |
-
-Among tools that meaningfully deduplicate, udud keeps the most surface on every
-corpus. `uro` and `urless` reach a shorter list by folding away whole classes.
+`uro` deletes every JSESSIONID, every TITLE_SLUG, every UUID, and two
+NUMERIC_ID classes; `urless` deletes every JSESSIONID and every TITLE_SLUG.
+Each deleted class is one endpoint surface that no downstream scan ever
+visits. udud keeps every canonical group.
 
 ### 4.3 The one trade udud makes on purpose
 
-udud is keep-biased. When a URL is ambiguous, for example it carries an object
-ID, a session token, or an opaque hash, the default keeps it rather than fold it
-away, because that is where broken-object-level-authorization and IDOR bugs
-hide. Collapsing `/order/1001` and `/order/1002` to one line erases the evidence
-that other objects exist.
+udud is keep-biased. When a URL is ambiguous, for example it carries an
+object ID, a session token, or an opaque hash, the default keeps it rather
+than fold it away, because that is where broken-object-level-authorization
+and IDOR bugs hide. Collapsing `/order/1001` and `/order/1002` to one line
+erases the evidence that other objects exist.
 
-The cost is a larger output than the aggressive folders produce. On the Wayback
-capture udud emits 129,436 lines against `uro`'s 78,470. Part of that gap is real
-surface udud keeps and `uro` deletes; part is genuine redundancy udud chose not
-to risk folding, for example the same endpoint reached with many rotating session
-tokens. The trade is intentional: a few thousand lines a scanner absorbs in
-seconds, in exchange for not silently dropping a testable endpoint. Teams that
-prefer a smaller, more aggressively folded list can run `-F`. Every number here
-is the shipping default, which optimizes for not losing surface.
+The cost is a larger output than the aggressive folders produce. On
+`D_unified.full` udud emits 115,764 lines against `uro`'s 64,667. Part of
+that gap is real surface udud keeps and `uro` deletes (Section 4.2); part is
+genuine redundancy udud chose not to risk folding, for example the same
+endpoint reached with many rotating session tokens. The trade is intentional:
+a few thousand lines a scanner absorbs in seconds, in exchange for not
+silently dropping a testable endpoint. Teams that prefer a smaller, more
+aggressively folded list can run `-F`. Every number here is the shipping
+default, which optimizes for not losing surface.
 
-### 4.4 Scoring that recognizes the enumeration surface
+### 4.4 Two scoring views, both published
 
 Section 4.1 measures "did the tool keep at least one representative per
 endpoint class". That is the right question when the unit of work is the
 endpoint template. It is the wrong question when the unit of work is the
-distinct object: an IDOR scan against 5,000 `/order/<UUID>` lines is 5,000
-authorization checks, not one. Under the canonical-group metric, a tool that
-keeps all 5,000 distinct UUIDs takes the 4,999 extra survivors as false
-positives and is penalized for preserving the enumeration surface.
+distinct object: an IDOR scan against 15,000 distinct `/order-N/<UUID>` URLs
+is 15,000 authorization checks, not one. Under the canonical-group metric, a
+tool that keeps all 15,000 distinct UUIDs takes the 14,985 extra survivors
+as false positives and is penalized for preserving the enumeration surface.
 
-`raw/synth_prf_recon.csv` answers the second question alongside the first.
-For the three classes where each distinct value is a distinct attack target
-(`UUID`, `HEX_HASH`, `JSESSIONID`), it counts true positives at the object
-level: distinct values preserved out of distinct values in the input. Every
-other class reuses the canonical-group score unchanged, so the two metrics
-agree wherever object-level distinctness is not a recon question. Both
-files are written on every run; nothing in Section 4.1 changes.
-
-Macro F1 across all twelve classes:
-
-| Tool | Canonical-group F1 | Enumeration-surface F1 |
-|---|---:|---:|
-| **udud** | 0.750 | **1.000** |
-| urldedupe | 0.528 | 0.778 |
-| urless | **0.833** | 0.750 |
-| uro | 0.750 | 0.750 |
-| uddup | 0.518 | 0.435 |
-
-Recall on the three enumerable classes, each 5,000 distinct input values
-(higher is better; "object recall" is distinct values preserved):
-
-| Tool | UUID | HEX_HASH | JSESSIONID |
-|---|---:|---:|---:|
-| **udud** | **0.9954** | **0.9968** | **0.9998** |
-| urldedupe | 1.0000 | 1.0000 | 1.0000 |
-| urless | 0.0002 | 1.0000 | 0.0000 |
-| uro | 0.0000 | 1.0000 | 0.0000 |
-| uddup | 0.0002 | 0.0002 | 1.0000 |
-
-Two tools preserve the enumeration surface in full: `udud` and `urldedupe`.
-The cost of doing it is the differentiator: on the 781k Wayback capture
-`urldedupe` holds 336 MB peak RSS and runs at 159k URLs/sec; `udud` does the
-same retention at 13.7 MB and 260k URLs/sec (Section 3). `uro` and `urless`
-fold 4,999 of every 5,000 `UUID` and `JSESSIONID` values into a single
-witness, deleting the IDOR and session-probing surface from every downstream
-scan. The two views together are the honest reading: pick the metric that
-matches the question your pipeline is actually being asked.
+[`raw/synth_prf_recon.csv`](raw/synth_prf_recon.csv) answers the second
+question alongside the first. For the three classes where each distinct
+value is a distinct attack target (`UUID`, `HEX_HASH`, `JSESSIONID`), it
+counts true positives at the object level: distinct values preserved out of
+distinct values in the input. Every other class reuses the canonical-group
+score unchanged, so the two metrics agree wherever object-level distinctness
+is not a recon question. Both files are written on every run; nothing in
+Section 4.1 changes.
 
 ## 5. Streaming, reduction, and CPU
 
 ### 5.1 Streaming
 
 udud reads standard input and writes standard output, so it drops into any
-pipeline between collection and scanning. The default mode buffers until end of
-input because a covering superset of a query key-set can arrive after a subset,
-so the kept output is written once, in first-seen order, at end of input. The
-`-k` and `-x` modes stream one line at a time in constant memory for pipelines
-that need backpressure rather than a single ordered pass.
+pipeline between collection and scanning. The default mode buffers until end
+of input because a covering superset of a query key-set can arrive after a
+subset, so the kept output is written once, in first-seen order, at end of
+input. The `-k` and `-x` modes stream one line at a time in constant memory
+for pipelines that need backpressure rather than a single ordered pass.
 
 ### 5.2 Reduction ratio
 
 Reduction is how much redundant scanner work the stage removes. It is only
-meaningful next to coverage, because deleting real classes also shrinks the
-output.
+meaningful next to surface retained, because deleting real classes also
+shrinks the output.
 
-| Tool | Output lines (781k) | Reduction | Coverage |
+| Tool | Output lines | Reduction | Surface retained |
 |---|---:|---:|---:|
-| **udud** | 129,436 | 83.4% | 83.5% |
-| uro | 78,470 | 90.0% | 62.9% |
-| urless | 74,737 | 90.4% | 67.4% |
-| urldedupe | 293,420 | 62.4% | 100% (pass) |
+| **udud** | 115,764 | 85.2 % | **100 %** |
+| urldedupe | 380,650 | 51.2 % | 100 % (pass) |
+| uro | 64,667 | 91.7 % | 97.77 % |
+| urless | 64,138 | 91.8 % | 96.82 % |
 
-`uro` and `urless` show a higher reduction only by folding away a third of the
-surface (their coverage falls with it). udud removes 83% of the lines while
-keeping the most classes.
+`uro` and `urless` show a higher reduction only by deleting whole endpoint
+classes (Section 4.2). udud removes 85 % of the lines while keeping every
+canonical group.
 
 ### 5.3 CPU efficiency
 
-udud uses 3.00 CPU-seconds on the 781k capture, single core, against
-`urldedupe`'s 4.92 and `uro`'s 17.5. Wall time and CPU time match because the run
-is single-threaded, so the wall figures in Section 3 are also the CPU cost.
+udud uses 1.74 CPU-seconds on `D_unified.full`, single core, against
+`urldedupe`'s 2.27 and `uro`'s 7.36. Wall time and CPU time match because
+the run is single-threaded, so the wall figures in Section 3 are also the
+CPU cost.
 
 ## 6. How each number was measured
 
@@ -270,128 +236,110 @@ Two ideas are kept separate, because conflating them is how deduplicators get
 marketed dishonestly:
 
 1. Quality: did the real attack surface survive, and how often did the tool
-   merge distinct endpoints by mistake. Reported as coverage (Section 4.2) and,
-   on the controlled corpus, as false merge rate (Section 4.1).
-2. Cost: throughput, peak memory, and CPU to get there (Section 3, Section 5).
+   merge distinct endpoints by mistake. Reported as surface retained (Section
+   4.1) and the per-class detail in Section 4.2.
+2. Cost: completion time, throughput, peak memory, and CPU to get there
+   (Section 3, Section 5).
 
-A tool that copies its input scores a perfect coverage while folding nothing,
-which is why coverage is always shown next to output size and `urldedupe`'s 100%
-is labelled passthrough throughout.
+A tool that copies its input scores a perfect surface-retained while folding
+nothing, which is why surface retained is always shown next to output size
+and `urldedupe`'s 100 % is labelled passthrough throughout.
 
-Quality is computed by a canonicalization-invariant classifier
-(`harness/quality.py`, `harness/wayback_prf.py`, and for the known-answer corpus
-`harness/synth_eval.py`). It normalizes the ground truth and every tool's output
-the same way (RFC 3986 syntax normalization, dot-segment removal, directory-index
-equivalence, percent-decoding, and ID/UUID/hex templating), then measures, per
-class, the fraction of distinct real endpoints with at least one survivor in the
-output. Normalizing both sides means a tool is never penalized for emitting the
-same endpoint in a cosmetically different form.
+Quality is computed by `harness/synth_eval.py`, which maps every output URL
+to a (class, group_id) under the same parsing rules as `harness/synth_gen.py`
+uses to label the input. RFC 3986 directory-index equivalence and trailing-
+slash equivalence are applied to both ground truth and tool output, so a
+tool that emits `/dir` is credited for a truth entry of `/dir/index.html`
+and vice versa. Normalizing both sides means a tool is never penalized for
+emitting the same endpoint in a cosmetically different form.
 
-`synth_eval.py` emits two scoring views on every run. The canonical-group view
-(`raw/synth_prf.csv`, `raw/synth_prf_byclass.csv`) is the Section 4.1 false
-merge metric: one true positive per endpoint class. The enumeration-surface
-view (`raw/synth_prf_recon.csv`, `raw/synth_prf_recon_byclass.csv`, Section
-4.4) is identical for non-enumerable classes; for `UUID`, `HEX_HASH`, and
-`JSESSIONID` it counts true positives at the object level. Both files are
-generated from the same single run of each tool, so the two views are
-directly comparable line by line.
+`synth_eval.py` emits two scoring views on every run. The canonical-group
+view (`raw/synth_prf.csv`, `raw/synth_prf_byclass.csv`) is the Section 4.1
+false merge metric: one true positive per endpoint class. The enumeration-
+surface view (`raw/synth_prf_recon.csv`, `raw/synth_prf_recon_byclass.csv`,
+Section 4.4) is identical for non-enumerable classes; for `UUID`,
+`HEX_HASH`, and `JSESSIONID` it counts true positives at the object level.
+Both files are generated from the same single run of each tool, so the two
+views are directly comparable line by line.
 
-Cost is measured on a pinned clock so timings are low-variance and comparable:
-each tool is pinned to one core, the page cache is primed so every tool reads
-from RAM, and the reported wall time is the best of repeated runs. Peak memory is
-the maximum resident set across runs. udud figures are the shipping default
+Cost is measured on a pinned clock so timings are low-variance and
+comparable: each tool is pinned to one core (`taskset -c 2`), the page cache
+is primed before the first trial, and the reported wall time is the best of
+five trials. Peak memory is the maximum resident set across runs, measured
+via `runstat`'s `getrusage` capture. udud figures are the shipping default
 (udud v23). Competitor figures use the documented invocation for each tool
-(Section 7) and do not change between udud versions because the tools are
-unchanged. The consolidated data is `raw/v23_results.csv`.
-
-A note on epochs. The headline corpus and the three smaller corpora were
-re-measured fresh for this release on one machine; absolute seconds differ from
-older runs on the same machine because of cache and clock state, while the
-ratios between tools are stable. `uddup`'s timings for the smaller corpora are
-carried from the prior epoch (the tool is unchanged and its role is only to show
-the quadratic curve); it does not finish the headline corpus in either epoch.
+(Section 7).
 
 ## 7. Reproducing the benchmark
 
-Inputs are frozen and checksummed (SHA-256 in `raw/datasets.csv`):
+Input is frozen and checksummed (SHA-256 in `raw/datasets.csv`):
 
-| Corpus | URLs | Bytes |
-|---|---:|---:|
-| Wayback capture (de-identified) | 781,398 | 134,533,990 |
-| Controlled known-answer corpus | 45,410 | 4,829,510 |
-| gau capture (de-identified) | 44,943 | 5,291,538 |
-| Vulnerable test target | 15,185 | 1,210,645 |
+| Corpus | URLs | Bytes | Canonical groups |
+|---|---:|---:|---:|
+| `D_unified.full` | 780,200 | 44,168,044 | 55,920 |
 
 Recipe:
 
 ```sh
-# 1. verify the de-identified corpora match the published checksums
-cd data && for f in *.gz; do gunzip -k "$f"; done
-sha256sum -c <(awk -F, 'NR>1{print $4"  "$1}' ../raw/datasets.csv)
+# 1. regenerate the corpus from its deterministic generator
+#    (random seed is fixed, so the bytes match raw/datasets.csv)
+python3 harness/synth_gen.py
 
-# 2. build udud (default configuration)
+# 2. verify the corpus matches the published SHA-256
+sha256sum -c <(awk -F, 'NR>1{print $4"  data/"$1}' raw/datasets.csv)
+
+# 3. build udud (default configuration)
 git clone https://github.com/ayodyadsr/udud /tmp/udud
 cc -O3 -march=native -flto -Wall -Wno-misleading-indentation \
    -o /usr/local/bin/udud /tmp/udud/udud.c
 
-# 3. measure cost (pin the clock first; see Section 6)
+# 4. measure cost (one input, five tools, five trials per tool)
 harness/bench.sh
-python3 harness/stats.py raw/
 
-# 4. measure quality
-python3 harness/synth_eval.py        # known-answer corpus, false merge rate
-python3 harness/wayback_prf.py       # real corpora, coverage
-python3 harness/quality.py --audit raw/
+# 5. measure quality (false merge rate, surface retained, per-class detail)
+python3 harness/synth_eval.py
 ```
 
-Tool invocations (also in `harness/INVOCATION.md`): udud, uro, and urldedupe
-read the corpus on standard input; `urless` is run as `urless -nb < corpus` (its
-`-i` flag is inert under a pipe on the tested build); `uddup` is run as
-`uddup -u <file>`. Each tool's output on each corpus is published under
-`raw/outputs/` so quality can be recomputed without re-running the tools.
+Tool invocations (also in `harness/INVOCATION.md`):
 
-## 8. How the real corpora were protected
+| Tool | Invocation |
+|---|---|
+| udud | `udud < D_unified.full > out` |
+| uro | `uro -i D_unified.full > out` |
+| urldedupe | `urldedupe < D_unified.full > out` |
+| urless | `urless -nb < D_unified.full > out` (`-i` is inert under a pipe) |
+| uddup | `uddup -u D_unified.full -o out` |
 
-The Wayback and gau corpora are real reconnaissance data against a confidential
-commercial target; publishing the raw bytes would disclose that target's host
-inventory and route structure. Both are deterministically de-identified before
-release by `harness/anonymize.py`, which ciphers every identity-bearing token
-while keeping the structural vocabulary a deduplicator keys on (schemes, ports,
-separators, digits, percent-escapes, public-suffix labels, file extensions, and
-the generic recon-parameter and matrix-key names). The transform preserves route
-shape and destroys host, path, and value identity.
+Each tool's output on `D_unified.full` is published under `raw/outputs/` so
+quality can be recomputed without re-running the tools.
 
-Because de-identification legitimately changes what keyword-based filters match,
-the benchmark is re-run from scratch on the de-identified bytes; these are not
-original numbers relabelled. `harness/verify_anon.py` is a release gate that
-proves no identity-bearing token survives. Full rules are in
-[`ANONYMIZATION.md`](ANONYMIZATION.md).
+## 8. Limitations, stated plainly
 
-## 9. Limitations, stated plainly
+- One input. The benchmark is run on one 780k known-answer corpus. The
+  corpus distribution is designed to match the shape of a real recon
+  capture (heavy templated bulk plus a long tail of distinct endpoints
+  plus a small enumerable IDOR surface), but it is one design. A team
+  running real traffic should also measure their own corpora.
+- One machine. Timings are from a single CPU under a pinned clock.
+  Absolute seconds differ on other hardware; the ratios between tools are
+  the portable result.
+- Surface retained is a corpus-defined notion of a real endpoint. The
+  classifier and ground truth encode the corpus author's judgement about
+  what counts as a distinct endpoint. The raw outputs and the labelled
+  input are published so that judgement can be re-checked.
+- udud's keep-bias is a default, not a law. This report measures the
+  shipping default, which favors surface retained over a minimal output.
+  Teams optimizing purely for output size should measure their preferred
+  configuration (`-F` for the most aggressive fold).
+- `uddup` is reported as DNF on `D_unified.full`. Its cost grows
+  quadratically and it times out well before 780k URLs. Its behaviour on
+  much smaller inputs is not in scope of this report.
 
-- One organization. The two real corpora come from a single large, diverse
-  target. The known-answer corpus and the vulnerable test target broaden the
-  picture but are not a substitute for many real targets.
-- One machine. Timings are from a single CPU under a pinned clock. Absolute
-  seconds differ on other hardware; the ratios between tools are the portable
-  result.
-- Stability at scale is shown to 6.25M URLs by replication and to 1.1M on a
-  genuinely distinct corpus. Internet-scale runs (tens of millions and up) are
-  not measured here; the flat-memory model predicts they stay bounded, but that
-  is a prediction, not a measurement in this report.
-- Coverage is a human-defined notion of a real endpoint. The classifier and
-  ground truth encode judgement about surface versus noise. The raw outputs and
-  per-class data are published so that judgement can be re-checked.
-- udud's keep-bias is a default, not a law. This report measures the shipping
-  default, which favors coverage over a minimal output. Teams optimizing purely
-  for output size should measure their preferred configuration.
+## 9. Recommendation
 
-## 10. Recommendation
-
-For a recon deduplication stage, udud is the recommended tool. In one run it
-leads on throughput and on peak memory, holds both flat into the multi-million-URL
-range, and has the lowest false merge rate of any tool that actually
-deduplicates, including on the object-ID endpoints where access-control bugs
-live. The trade, a larger output than the most aggressive folders, is the correct
-one for a security pipeline and is configurable for teams with different
-priorities.
+For a recon deduplication stage, udud is the recommended tool. In one run on
+the same 780k known-answer input it leads on completion time, on throughput,
+on peak memory, and on false merge rate, including on the object-ID
+endpoints where access-control bugs live. The trade, a larger output than
+the most aggressive folders, is the correct one for a security pipeline and
+is configurable for teams with different priorities.

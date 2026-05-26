@@ -35,8 +35,8 @@ def parse_qs(q):
     return _parse_qs(q, keep_blank_values=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-INPUT = os.path.join(HERE, "..", "data", "D_synth.full")
-TRUTH = os.path.join(HERE, "..", "data", "D_synth.truth.json")
+INPUT = os.path.join(HERE, "..", "data", "D_unified.full")
+TRUTH = os.path.join(HERE, "..", "data", "D_unified.truth.json")
 
 
 # RFC 3986 directory-index equivalence: /dir/index.html resolves to /dir/
@@ -104,15 +104,63 @@ ENUMERABLE_CLASSES = {"UUID", "HEX_HASH", "JSESSIONID"}
 # recon-aware count; the canonical view never calls this.
 def object_value(klass, url):
     if klass == "UUID":
-        m = re.search(r"/order/([0-9a-fA-F-]{32,36})", url)
+        m = re.search(r"/order-\d+/([0-9a-fA-F-]{32,36})", url)
         return m.group(1).lower() if m else None
     if klass == "HEX_HASH":
-        m = re.search(r"/asset/([0-9a-fA-F]{64})", url)
+        m = re.search(r"/asset-\d+/([0-9a-fA-F]{64})", url)
         return m.group(1).lower() if m else None
     if klass == "JSESSIONID":
         m = re.search(r";jsessionid=([^;/?&]+)", url, re.I)
         return m.group(1) if m else None
     return None
+
+
+# bases used for the templated enumeration classes. Kept in sync with
+# synth_gen_v2.py: a change there must change the bases here.
+NUMERIC_ID_BASES = ("product", "item", "post", "comment", "order-item",
+                    "report", "ticket", "issue", "task", "review")
+CACHE_BASES = ("main", "app", "vendor", "runtime", "polyfill")
+
+_NUMERIC_RE = re.compile(
+    r"^/(" + "|".join(NUMERIC_ID_BASES) + r")-(\d+)/(\d+)/?$"
+)
+_UUID_RE      = re.compile(r"^/order-(\d+)/[0-9a-fA-F-]{32,36}/?$")
+_HEX_RE       = re.compile(r"^/asset-(\d+)/[0-9a-fA-F]{64}/?$")
+_SLUG_RE      = re.compile(r"^/blog-(\d+)/[a-z][a-z0-9-]+-\d+/?$")
+_CACHE_RE     = re.compile(
+    r"^/(" + "|".join(CACHE_BASES) + r")-(\d+)\.js$"
+)
+_AUTH_RE      = re.compile(r"^/auth-(\d+)(;.*)?$", re.I)
+_REDIR_RE     = re.compile(r"^/redir-(\d+)$")
+_PAGE_RE      = re.compile(r"^/page-(\d+)$")
+_API_RE       = re.compile(r"^/api-(\d+)$")
+_WIDGET_RE    = re.compile(r"^/widget(\d+)/?$")
+
+
+def _build_srcdisc_set():
+    bases = [
+        ".env", ".env.production", ".env.local", ".env.staging", ".env.development",
+        ".git/config", ".git/HEAD", ".git/index", ".git/logs/HEAD",
+        "db.sql", "backup.sql", "dump.sql", "database.sql", "data.sql",
+        "backup.zip", "backup.tar.gz", "backup.tar", "backup.7z",
+        "index.php.bak", "config.php.bak", "wp-config.php.bak",
+        "config.bak", "settings.bak", "app.bak",
+        ".htaccess.bak", ".htpasswd",
+        "config.php.swp", ".DS_Store",
+        "credentials.json", "secrets.yml", "secrets.json", "vault.yml",
+        ".aws/credentials", ".ssh/id_rsa", ".ssh/id_ed25519",
+        "WEB-INF/web.xml.bak", "META-INF/context.xml.bak",
+        "private.pem", "server.key", "ca.crt",
+    ]
+    projects = ["", "/app", "/web", "/site", "/portal"]
+    out = set()
+    for proj in projects:
+        for f in bases:
+            out.add("%s/%s" % (proj, f) if proj else "/%s" % f)
+    return out
+
+
+SRCDISC_SET = _build_srcdisc_set()
 
 
 def classify(url):
@@ -123,58 +171,61 @@ def classify(url):
     path = p.path or ""
     q = p.query or ""
 
-    # NUMERIC_ID: /product/<digits>
-    if re.match(r"^/product/\d+/?$", path):
-        return ("NUMERIC_ID", "product")
-    # UUID: /order/<uuid4>
-    if re.match(r"^/order/[0-9a-fA-F-]{32,36}/?$", path):
-        return ("UUID", "order")
-    # HEX_HASH: /asset/<64-hex>
-    if re.match(r"^/asset/[0-9a-fA-F]{64}/?$", path):
-        return ("HEX_HASH", "asset")
-    # TITLE_SLUG: /blog/<slug-words-N>
-    if re.match(r"^/blog/[a-z][a-z0-9-]+-\d+/?$", path):
-        return ("TITLE_SLUG", "blog")
-    # CACHE_BUST: /main.js + query containing _
-    if path == "/main.js":
+    # NUMERIC_ID: /<base>-<n>/<digits>
+    m = _NUMERIC_RE.match(path)
+    if m:
+        return ("NUMERIC_ID", "%s-%s" % (m.group(1), m.group(2)))
+    # UUID: /order-<n>/<uuid4>
+    m = _UUID_RE.match(path)
+    if m:
+        return ("UUID", "order-%s" % m.group(1))
+    # HEX_HASH: /asset-<n>/<64-hex>
+    m = _HEX_RE.match(path)
+    if m:
+        return ("HEX_HASH", "asset-%s" % m.group(1))
+    # TITLE_SLUG: /blog-<n>/<slug-words-N>
+    m = _SLUG_RE.match(path)
+    if m:
+        return ("TITLE_SLUG", "blog-%s" % m.group(1))
+    # CACHE_BUST: /<filebase>-<n>.js with empty/`_`-keyed query
+    m = _CACHE_RE.match(path)
+    if m:
         keys = set(parse_qs(q).keys())
         if "_" in keys or not q:
-            return ("CACHE_BUST", "main.js")
-    # JSESSIONID: any path with ;jsessionid=
-    if ";jsessionid=" in url.lower() or re.search(r"/auth(/|;|$)", path, re.I):
-        if path.rstrip("/").endswith("/auth") or "/auth;" in url or path == "/auth":
-            return ("JSESSIONID", "auth")
-    # OPEN_REDIRECT: /redir + query containing url=
-    if path == "/redir":
+            return ("CACHE_BUST", "%s-%s.js" % (m.group(1), m.group(2)))
+    # JSESSIONID: /auth-<n>;jsessionid=<sid>  (also catches plain /auth-N if a
+    # tool stripped the matrix parameter, which still folds to one group)
+    if ";jsessionid=" in url.lower():
+        m = _AUTH_RE.match(path)
+        if m:
+            return ("JSESSIONID", "auth-%s" % m.group(1))
+    elif _AUTH_RE.match(path) and ";" in path:
+        m = _AUTH_RE.match(path)
+        return ("JSESSIONID", "auth-%s" % m.group(1))
+    # OPEN_REDIRECT: /redir-<n> with empty or url= query
+    m = _REDIR_RE.match(path)
+    if m:
         keys = set(parse_qs(q).keys())
         if "url" in keys or not q:
-            return ("OPEN_REDIRECT", "redir")
-    # LFI_PARAM: /page + query containing file=
-    if path == "/page":
+            return ("OPEN_REDIRECT", "redir-%s" % m.group(1))
+    # LFI_PARAM: /page-<n> with empty or file= query
+    m = _PAGE_RE.match(path)
+    if m:
         keys = set(parse_qs(q).keys())
         if "file" in keys or not q:
-            return ("LFI_PARAM", "page")
-    # PARAM_ORDER: /api + query with keys {a,b}
-    if path == "/api":
+            return ("LFI_PARAM", "page-%s" % m.group(1))
+    # PARAM_ORDER: /api-<n> with empty or {a,b} query
+    m = _API_RE.match(path)
+    if m:
         keys = set(parse_qs(q).keys())
         if keys == {"a", "b"} or keys == set():
-            return ("PARAM_ORDER", "api")
+            return ("PARAM_ORDER", "api-%s" % m.group(1))
     # TRAILING_SLASH: /widget<n>[/]
-    m = re.match(r"^/widget(\d+)/?$", path)
+    m = _WIDGET_RE.match(path)
     if m:
         return ("TRAILING_SLASH", "widget%s" % m.group(1))
     # SRCDISC: known set
-    srcdisc = {
-        "/.env", "/.env.production", "/.env.local",
-        "/.git/config", "/.git/HEAD", "/.git/index",
-        "/db.sql", "/backup.sql", "/dump.sql",
-        "/backup.zip", "/backup.tar.gz",
-        "/index.php.bak", "/config.php.bak", "/wp-config.php.bak",
-        "/.htaccess.bak", "/.htpasswd",
-        "/config.php.swp", "/.DS_Store",
-        "/credentials.json", "/secrets.yml",
-    }
-    if path in srcdisc:
+    if path in SRCDISC_SET:
         return ("SRCDISC", path)
     # GENUINE_DISTINCT: any other path in the synth host - fall through
     # to the ground-truth list. Canonicalize under the same index/slash
@@ -192,6 +243,7 @@ def evaluate_output(out_path, truth):
     by_class = {}                                # class -> set(group_id)
     kept_urls = {}                               # class -> count
     by_value = {}                                # class -> set(object_value)
+    gd_groups = set(truth.get("GENUINE_DISTINCT", {}).get("groups", []))
 
     with open(out_path, "rb") as fh:
         for line in fh:
@@ -205,9 +257,11 @@ def evaluate_output(out_path, truth):
             if not label:
                 continue
             klass, gid = label
-            # restrict GENUINE_DISTINCT to the ground-truth list
+            # restrict GENUINE_DISTINCT to the ground-truth set (O(1) lookup
+            # matters when GENUINE_DISTINCT carries tens of thousands of
+            # groups in the unified corpus).
             if klass == "GENUINE_DISTINCT":
-                if gid not in truth.get("GENUINE_DISTINCT", {}).get("groups", []):
+                if gid not in gd_groups:
                     continue
             by_class.setdefault(klass, set()).add(gid)
             kept_urls[klass] = kept_urls.get(klass, 0) + 1
@@ -238,7 +292,7 @@ def evaluate_output(out_path, truth):
 
 def run_tool(tool, input_path, out_dir):
     name = tool
-    out = os.path.join(out_dir, "D_synth.full.%s.out" % name)
+    out = os.path.join(out_dir, "D_unified.full.%s.out" % name)
     if os.path.exists(out) and os.path.getsize(out) > 0:
         return out, None
     bin_path = {
@@ -248,22 +302,30 @@ def run_tool(tool, input_path, out_dir):
         "urless": "urless",
         "uddup": "uddup",
     }[name]
-    if name == "uddup":
-        # uddup needs -u flag
-        proc = subprocess.run([bin_path, "-u", input_path],
-                              capture_output=True, timeout=300)
-    elif name == "urless":
-        # urless reads -i only when stdin is a TTY; under subprocess
-        # stdin is a pipe so urless reads (empty) stdin and ignores -i.
-        # Workaround: pipe the file via stdin and let urless write to -o.
-        proc = subprocess.run([bin_path, "-o", out],
-                              stdin=open(input_path, "rb"),
-                              capture_output=True, timeout=600)
-        return out, proc.stderr
-    else:
-        proc = subprocess.run([bin_path],
-                              stdin=open(input_path, "rb"),
-                              capture_output=True, timeout=600)
+    try:
+        if name == "uddup":
+            # uddup is O(n^2). On the 780k unified corpus it cannot finish;
+            # we still call it so the DNF is measured, with a tight cap.
+            proc = subprocess.run([bin_path, "-u", input_path],
+                                  capture_output=True, timeout=120)
+        elif name == "urless":
+            # urless reads -i only when stdin is a TTY; under subprocess
+            # stdin is a pipe so urless reads (empty) stdin and ignores -i.
+            # Workaround: pipe the file via stdin and let urless write to -o.
+            proc = subprocess.run([bin_path, "-o", out],
+                                  stdin=open(input_path, "rb"),
+                                  capture_output=True, timeout=600)
+            return out, proc.stderr
+        else:
+            proc = subprocess.run([bin_path],
+                                  stdin=open(input_path, "rb"),
+                                  capture_output=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        # write an empty file so the caller treats this as DNF without
+        # crashing the rest of the eval.
+        with open(out, "wb") as fh:
+            pass
+        return out, b"TIMEOUT"
     if proc.returncode != 0 and name != "uddup":
         print("%s exited %d: %s" % (name, proc.returncode, proc.stderr[:200]),
               file=sys.stderr)

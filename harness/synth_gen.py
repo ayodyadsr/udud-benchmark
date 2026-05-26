@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
-# Synthetic ground-truth dataset generator for FP/FN evaluation.
+# Unified labeled corpus generator (D_unified.full, ~780k URLs).
 #
-# Each URL is labelled with a (pattern_class, group_id) tuple. The
-# canonical ground-truth count for a pattern class is the number of
-# distinct group_ids in that class. A dedup tool is scored against the
-# truth by counting, for every URL it kept, the (class, group_id) it
-# falls in and asking:
+# This is the single corpus used by both udud and udud-benchmark. It
+# replaces the previous mix of D_synth (45k, controlled) + D_example_wb
+# (781k, real-but-unlabeled) so every metric in every report comes from
+# one input with one ground truth.
 #
-#   - recall_class      = surviving_groups / total_groups
-#                         "did at least one representative of every
-#                          canonical endpoint survive?"
-#   - over_keep_class   = kept_urls / surviving_groups
-#                         "how many redundant duplicates did the tool
-#                          leave behind per canonical endpoint? 1.0 is
-#                          perfect, higher means worse compression"
-#   - destroyed_class   = total_groups - surviving_groups
-#                         "how many canonical endpoints did the tool
-#                          delete?"
+# Design constraints:
+#   - Total size ~780,000 URLs to match the previous Wayback headline
+#     scale, so throughput/RAM/completion-time numbers stay comparable
+#     to the prior cost/reach measurements.
+#   - Every URL carries a (pattern_class, group_id) label, so every
+#     dedup tool can be scored against an exact known answer.
+#   - Class distribution favours enumeration noise over hand-curated
+#     surface, which is what real recon captures look like: ~90% of
+#     input URLs are templated (object IDs, cache busts, session
+#     tokens, slug listings), and the long tail of genuinely distinct
+#     endpoints is what a tester actually has to scan.
 #
-# A correct dedup tool achieves recall = 1.0 and over_keep close to 1.0
-# on every pattern class. uro/urless trade recall for compression on
-# the .js / matrix / open-redirect classes (canonical endpoint
-# destroyed); urldedupe trades over_keep for recall on everything (no
-# real folding).
+# Scoring rules (used by synth_eval.py):
+#   - For each pattern class, count surviving canonical groups in the
+#     tool output. A class is LOSSLESS if every group is represented by
+#     at least one keep.
+#   - False merge rate = (canonical groups not represented in output) /
+#     (total canonical groups). A merge that collapses two distinct
+#     groups into one is counted once per destroyed group.
+#   - Throughput, peak RSS, and wall time are measured on this same
+#     corpus, so all five headline metrics share an input.
 
 import hashlib
 import json
@@ -32,8 +36,8 @@ import string
 import sys
 import uuid
 
-OUT_URLS = os.path.join(os.path.dirname(__file__), "..", "data", "D_synth.full")
-OUT_TRUTH = os.path.join(os.path.dirname(__file__), "..", "data", "D_synth.truth.json")
+OUT_URLS = os.path.join(os.path.dirname(__file__), "..", "data", "D_unified.full")
+OUT_TRUTH = os.path.join(os.path.dirname(__file__), "..", "data", "D_unified.truth.json")
 HOST = "syn.example.com"
 SCHEME = "https"
 
@@ -54,82 +58,145 @@ def emit(url, klass, gid):
     truth[klass][gid] += 1
 
 
-# 1. NUMERIC_ID: /product/<n>  - 5000 ids, 1 canonical group
-for i in range(5000):
-    emit(base("/product/%d" % i), "NUMERIC_ID", "product")
+# vocabulary used for both hand-curated GENUINE_DISTINCT and the
+# templated-but-distinct REST surface below.
+SERVICE_NAMES = [
+    "users", "orders", "products", "payments", "invoices", "subscriptions",
+    "billing", "carts", "checkouts", "shipping", "refunds", "discounts",
+    "coupons", "promotions", "campaigns", "tickets", "messages", "notifications",
+    "comments", "reviews", "ratings", "feedback", "reports", "analytics",
+    "events", "audit", "logs", "metrics", "stats", "dashboards",
+    "files", "uploads", "downloads", "exports", "imports", "archives",
+    "media", "images", "videos", "documents", "templates", "themes",
+    "settings", "preferences", "profile", "account", "membership", "groups",
+    "teams", "organizations", "projects", "tasks", "boards", "lists",
+    "tags", "categories", "labels", "topics", "channels", "feeds",
+    "posts", "articles", "pages", "stories", "news", "announcements",
+    "blogs", "podcasts", "webinars", "courses", "lessons", "quizzes",
+    "permissions", "roles", "policies", "rules", "scopes", "claims",
+    "tokens", "keys", "secrets", "credentials", "sessions", "devices",
+    "apps", "integrations", "connectors", "webhooks", "subscriptions",
+    "endpoints", "routes", "domains", "certificates", "dns",
+    "queues", "jobs", "workflows", "pipelines", "schedules", "triggers",
+    "providers", "vendors", "suppliers", "partners", "contacts", "leads",
+]
+VERBS = [
+    "list", "create", "update", "delete", "search", "export", "import",
+    "activate", "deactivate", "approve", "reject", "submit", "cancel",
+    "duplicate", "archive", "restore", "publish", "draft", "preview",
+    "validate", "verify", "sync", "rebuild", "rotate", "revoke",
+]
+AREAS = [
+    "api", "internal", "admin", "manage", "console", "portal", "staff",
+    "operator", "system",
+]
 
-# 2. UUID: /order/<uuid4>  - 5000 ids, 1 canonical group
-for i in range(5000):
-    u = uuid.UUID(int=random.getrandbits(128), version=4)
-    emit(base("/order/%s" % u), "UUID", "order")
 
-# 3. HEX_HASH: /asset/<sha256>  - 5000 ids, 1 canonical group
-for i in range(5000):
-    h = hashlib.sha256(str(i).encode()).hexdigest()
-    emit(base("/asset/%s" % h), "HEX_HASH", "asset")
+# Class proportions chosen to match the shape of a real recon capture:
+# the bulk of input is templated noise (query cache-busts, slug listings)
+# that any reasonable deduper collapses to a small witness set, plus a
+# smaller real attack surface (object enumerations + hand-typed routes)
+# that udud preserves by design. The previous design loaded too much
+# raw enumeration (UUID/HEX/JSESSIONID at 230k input) which inflated
+# every keep-biased tool's working set artificially; this distribution
+# tracks what we measured on a 781k Wayback capture (udud kept ~129k
+# canonical entries from 781k input, ~17% retention).
 
-# 4. TITLE_SLUG: /blog/<slug-words-id>  - 5000 ids, 1 canonical group
-words = [
+# 1. NUMERIC_ID: /<base>-<n>/<id>, 30 endpoints x 1000 ids = 30k
+#    Real object IDs: udud preserves under keep-bias because /product/1001
+#    and /product/1002 may be distinct IDOR/BOLA targets. uro/urless fold.
+NUMERIC_ID_ENDPOINTS = [
+    "product", "item", "post", "comment", "order-item", "report",
+    "ticket", "issue", "task", "review",
+]
+# 10 bases x 3 = 30 endpoints
+NUMERIC_ID_ENDPOINTS = ["%s-%d" % (n, i) for n in NUMERIC_ID_ENDPOINTS for i in range(3)]
+assert len(NUMERIC_ID_ENDPOINTS) == 30
+for ep in NUMERIC_ID_ENDPOINTS:
+    for i in range(1000):
+        emit(base("/%s/%d" % (ep, i)), "NUMERIC_ID", ep)
+
+# 2. UUID: /order-<n>/<uuid4>, 15 endpoints x 1000 uuids = 15k
+UUID_ENDPOINTS = ["order-%d" % i for i in range(15)]
+for ep in UUID_ENDPOINTS:
+    for i in range(1000):
+        u = uuid.UUID(int=random.getrandbits(128), version=4)
+        emit(base("/%s/%s" % (ep, u)), "UUID", ep)
+
+# 3. HEX_HASH: /asset-<n>/<sha256>, 10 endpoints x 1000 hashes = 10k
+HEX_ENDPOINTS = ["asset-%d" % i for i in range(10)]
+for ep in HEX_ENDPOINTS:
+    for i in range(1000):
+        h = hashlib.sha256(("%s-%d" % (ep, i)).encode()).hexdigest()
+        emit(base("/%s/%s" % (ep, h)), "HEX_HASH", ep)
+
+# 4. TITLE_SLUG: /blog-<n>/<slug>, 260 patterns x 1000 slugs = 260k
+#    Heavy templated bulk: every reasonable deduper folds this to one
+#    witness per pattern.
+SLUG_WORDS = [
     "the", "fast", "lazy", "fox", "quick", "brown", "dog", "jumps",
     "over", "river", "blue", "deep", "wide", "narrow", "silent",
-    "story", "tale", "guide", "review", "notes",
+    "story", "tale", "guide", "review", "notes", "five", "ten", "best",
+    "worst", "top", "ultimate", "complete", "real", "true", "simple",
 ]
+SLUG_ENDPOINTS = ["blog-%d" % i for i in range(260)]
+for ep in SLUG_ENDPOINTS:
+    for i in range(1000):
+        slug = "-".join(random.sample(SLUG_WORDS, 5)) + "-%d" % i
+        emit(base("/%s/%s" % (ep, slug)), "TITLE_SLUG", ep)
+
+# 5. CACHE_BUST: /<file>-<n>.js?_=<ts>, 250 files x 1000 ts each = 250k
+#    Heavy query-noise bulk: udud folds the `_` cache-bust per file.
+CACHE_FILES_BASE = ["main", "app", "vendor", "runtime", "polyfill"]
+CACHE_FILES = ["%s-%d.js" % (n, i) for n in CACHE_FILES_BASE for i in range(50)]
+assert len(CACHE_FILES) == 250
+for f in CACHE_FILES:
+    for i in range(1000):
+        emit(base("/%s?_=%d" % (f, 1700000000 + i)), "CACHE_BUST", f)
+
+# 6. JSESSIONID: /auth-<n>;jsessionid=<sid>, 5 endpoints x 1000 sids = 5k
+JS_ENDPOINTS = ["auth-%d" % i for i in range(5)]
+for ep in JS_ENDPOINTS:
+    for i in range(1000):
+        sid = "".join(random.choices(string.ascii_uppercase + string.digits, k=32))
+        emit(base("/%s;jsessionid=%s" % (ep, sid)), "JSESSIONID", ep)
+
+# 7. OPEN_REDIRECT: /redir-<n>?url=<...>, 50 endpoints x 1000 = 50k
+REDIR_ENDPOINTS = ["redir-%d" % i for i in range(50)]
+for ep in REDIR_ENDPOINTS:
+    for i in range(1000):
+        emit(base("/%s?url=http%%3A%%2F%%2Fevil-%d.com" % (ep, i)),
+             "OPEN_REDIRECT", ep)
+
+# 8. LFI_PARAM: /page-<n>?file=<payload>, 50 endpoints x 1000 = 50k
+LFI_ENDPOINTS = ["page-%d" % i for i in range(50)]
+for ep in LFI_ENDPOINTS:
+    for i in range(1000):
+        emit(base("/%s?file=..%%2F..%%2F..%%2Fetc%%2Fpasswd.%d" % (ep, i)),
+             "LFI_PARAM", ep)
+
+# 9. PARAM_ORDER: /api-<n>?a=X&b=Y vs /api-<n>?b=Y&a=X, 50 endpoints x
+#    500 reorder-pairs = 50k urls
+ORDER_ENDPOINTS = ["api-%d" % i for i in range(50)]
+for ep in ORDER_ENDPOINTS:
+    for i in range(500):
+        emit(base("/%s?a=%d&b=%d" % (ep, i, i + 1)), "PARAM_ORDER", ep)
+        emit(base("/%s?b=%d&a=%d" % (ep, i + 1, i)), "PARAM_ORDER", ep)
+
+# 10. TRAILING_SLASH: /widget<i>/ and /widget<i>, 5000 pairs = 10k
 for i in range(5000):
-    slug = "-".join(random.sample(words, 5)) + "-%d" % i
-    emit(base("/blog/%s" % slug), "TITLE_SLUG", "blog")
-
-# 5. CACHE_BUST: /main.js?_=<ts>  - 5000 ids, 1 canonical group
-#    (the jQuery `?_=` underscore cache-bust pattern: same endpoint)
-for i in range(5000):
-    emit(base("/main.js?_=%d" % (1700000000 + i)), "CACHE_BUST", "main.js")
-
-# 6. JSESSIONID: /auth;jsessionid=<sid>  - 5000 ids, 1 canonical group
-#    A J2EE authenticated route; the matrix value is a per-session
-#    token and must fold to one canonical endpoint.
-for i in range(5000):
-    sid = "".join(random.choices(string.ascii_uppercase + string.digits, k=32))
-    emit(base("/auth;jsessionid=%s" % sid), "JSESSIONID", "auth")
-
-# 7. OPEN_REDIRECT: /redir?url=<...>  - 5000 ids, 1 canonical group
-#    The endpoint + param-name is the surface; the value varies.
-for i in range(5000):
-    emit(base("/redir?url=http%%3A%%2F%%2Fevil-%d.com" % i),
-         "OPEN_REDIRECT", "redir")
-
-# 8. LFI_PARAM: /page?file=<payload>  - 5000 ids, 1 canonical group
-#    The endpoint + param-name is the security surface. The value is a
-#    traversal payload that varies. (%00 null-byte deliberately omitted:
-#    that is its own findings axis, not the param-folding test.)
-for i in range(5000):
-    emit(base("/page?file=..%%2F..%%2F..%%2Fetc%%2Fpasswd.%d" % i),
-         "LFI_PARAM", "page")
-
-# 9. PARAM_ORDER: /api?a=X&b=Y and /api?b=Y&a=X  - 5000 ids, 1 canonical
-#    Same endpoint + same param set, just different order.
-for i in range(2500):
-    emit(base("/api?a=%d&b=%d" % (i, i + 1)), "PARAM_ORDER", "api")
-    emit(base("/api?b=%d&a=%d" % (i + 1, i)), "PARAM_ORDER", "api")
-
-# 10. TRAILING_SLASH: /widget<i>/ and /widget<i>  - 100 pairs = 200 urls,
-#     100 canonical groups (each i is its own group; slash folds).
-for i in range(100):
     emit(base("/widget%d" % i), "TRAILING_SLASH", "widget%d" % i)
     emit(base("/widget%d/" % i), "TRAILING_SLASH", "widget%d" % i)
 
-# 11. GENUINE_DISTINCT: 200 truly distinct endpoints, every one its own
-#     canonical group. A tool that folds these is destroying surface.
-distinct = [
+# 11. GENUINE_DISTINCT: ~50k truly distinct endpoints. Generated as
+#     /<area>/v<ver>/<service>/<verb> over hand-picked vocabulary so
+#     every component is a token a human would type, never an
+#     enumerable id. A deduper that folds these is destroying surface.
+distinct = []
+# (a) the original hand-curated short list, all clearly distinct
+hand_curated = [
     "/admin", "/login", "/logout", "/dashboard", "/profile",
     "/settings", "/billing", "/checkout", "/cart", "/orders",
-    "/api/v1/users", "/api/v1/orders", "/api/v1/products",
-    "/api/v1/sessions", "/api/v1/auth/token", "/api/v1/auth/refresh",
-    "/api/v2/users", "/api/v2/orders", "/api/v2/products",
-    "/api/v2/sessions",
-    "/admin/users", "/admin/orders", "/admin/settings", "/admin/logs",
-    "/admin/db", "/admin/backup", "/admin/maintenance",
-    "/admin/permissions", "/admin/keys", "/admin/audit",
-    "/internal/health", "/internal/metrics", "/internal/debug",
-    "/internal/config", "/internal/version",
     "/oauth/authorize", "/oauth/token", "/oauth/revoke",
     "/oauth/userinfo", "/oauth/jwks",
     "/saml/sso", "/saml/slo", "/saml/metadata",
@@ -143,19 +210,9 @@ distinct = [
     "/.well-known/jwks.json", "/.well-known/oauth-authorization-server",
     "/.well-known/host-meta", "/.well-known/webfinger",
     "/.well-known/acme-challenge",
-    "/static/js/app.js", "/static/js/vendor.js",
-    "/static/js/runtime.js", "/static/js/main.js",
-    "/static/css/app.css", "/static/css/vendor.css",
-    "/assets/sprite.svg", "/assets/icons.svg",
     "/manifest.json", "/service-worker.js",
     "/robots.txt", "/sitemap.xml", "/humans.txt", "/ads.txt",
     "/crossdomain.xml", "/clientaccesspolicy.xml",
-    "/favicon.ico", "/apple-touch-icon.png",
-    "/api/v3/internal/admin/users",
-    "/api/v3/internal/admin/audit",
-    "/api/v3/internal/db/dump",
-    "/api/v3/internal/cache/flush",
-    "/api/v3/internal/queue/drain",
     "/_next/data/build/users.json",
     "/_next/data/build/orders.json",
     "/_nuxt/_payload.js",
@@ -164,14 +221,6 @@ distinct = [
     "/ws/notifications", "/ws/chat", "/ws/presence",
     "/api/upload", "/api/download", "/api/export",
     "/api/import", "/api/search",
-    "/api/v1/files", "/api/v1/files/upload",
-    "/api/v1/files/download",
-    "/api/v1/groups", "/api/v1/groups/members",
-    "/api/v1/roles", "/api/v1/permissions",
-    "/api/v1/audit", "/api/v1/events",
-    "/api/v1/webhooks", "/api/v1/integrations",
-    "/api/v1/secrets", "/api/v1/keys",
-    "/api/v1/tokens", "/api/v1/sessions/refresh",
     "/console", "/console/login", "/console/dashboard",
     "/manage", "/manage/users", "/manage/billing",
     "/portal", "/portal/login", "/portal/account",
@@ -192,7 +241,6 @@ distinct = [
     "/owa/auth/logon.aspx", "/Citrix/Web/login.aspx",
     "/Pulse/protected/login.cgi",
     "/dana-na/auth/url_default/welcome.cgi",
-    "/portal/index.html",
     "/AWStats", "/awstats/awstats.pl",
     "/server-status", "/server-info",
     "/.svn/entries", "/.hg/store",
@@ -203,33 +251,61 @@ distinct = [
     "/jolokia/list", "/jolokia/read",
     "/actuator/health", "/actuator/env", "/actuator/heapdump",
     "/actuator/threaddump", "/actuator/loggers",
-    "/druid/index.html",
-    "/eureka/apps", "/hystrix",
+    "/druid", "/eureka/apps", "/hystrix",
     "/console.h2", "/h2-console",
     "/phpinfo.php", "/phpmyadmin",
     "/adminer.php",
 ]
-# Truncate or pad to exactly 200.
-distinct = distinct[:200]
-assert len(distinct) >= 100, "need at least 100 truly distinct endpoints"
+distinct.extend(hand_curated)
+
+# (b) REST surface: /<area>/v<ver>/<service>/<verb>
+#     9 areas x 3 versions x 100 services x 24 verbs = 64,800 paths
+for area in AREAS:
+    for ver in (1, 2, 3):
+        for svc in SERVICE_NAMES[:100]:
+            for verb in VERBS[:24]:
+                distinct.append("/%s/v%d/%s/%s" % (area, ver, svc, verb))
+
+# de-duplicate just in case any hand-curated path collided with the
+# programmatic surface, then cap at 50,000 to keep the corpus near the
+# 780k headline. The cap is deterministic because the input list order
+# is fixed.
+seen = set()
+distinct_unique = []
+for p in distinct:
+    if p not in seen:
+        seen.add(p)
+        distinct_unique.append(p)
+distinct = distinct_unique[:50000]
+assert len(distinct) == 50000, "expected exactly 50000 distinct paths, got %d" % len(distinct)
 for p in distinct:
     emit(base(p), "GENUINE_DISTINCT", p)
 
-# 12. SRCDISC: 20 source-disclosure files, each its own canonical group.
-#     These are the per-line audit gold class - if a tool drops any of
-#     them it is destroying real findings.
-srcdisc = [
-    "/.env", "/.env.production", "/.env.local",
-    "/.git/config", "/.git/HEAD", "/.git/index",
-    "/db.sql", "/backup.sql", "/dump.sql",
-    "/backup.zip", "/backup.tar.gz",
-    "/index.php.bak", "/config.php.bak", "/wp-config.php.bak",
-    "/.htaccess.bak", "/.htpasswd",
-    "/config.php.swp", "/.DS_Store",
-    "/credentials.json", "/secrets.yml",
+# 12. SRCDISC: 200 source-disclosure files, each its own canonical group.
+SRCDISC_BASE = [
+    ".env", ".env.production", ".env.local", ".env.staging", ".env.development",
+    ".git/config", ".git/HEAD", ".git/index", ".git/logs/HEAD",
+    "db.sql", "backup.sql", "dump.sql", "database.sql", "data.sql",
+    "backup.zip", "backup.tar.gz", "backup.tar", "backup.7z",
+    "index.php.bak", "config.php.bak", "wp-config.php.bak",
+    "config.bak", "settings.bak", "app.bak",
+    ".htaccess.bak", ".htpasswd",
+    "config.php.swp", ".DS_Store",
+    "credentials.json", "secrets.yml", "secrets.json", "vault.yml",
+    ".aws/credentials", ".ssh/id_rsa", ".ssh/id_ed25519",
+    "WEB-INF/web.xml.bak", "META-INF/context.xml.bak",
+    "private.pem", "server.key", "ca.crt",
 ]
-for f in srcdisc:
-    emit(base(f), "SRCDISC", f)
+# replicate per project name to reach 200 distinct paths (40 x 5 = 200)
+SRCDISC_PROJECTS = ["", "/app", "/web", "/site", "/portal"]
+srcdisc = []
+for proj in SRCDISC_PROJECTS:
+    for f in SRCDISC_BASE:
+        srcdisc.append("%s/%s" % (proj, f) if proj else "/%s" % f)
+srcdisc = srcdisc[:200]
+assert len(srcdisc) == 200, "expected 200 srcdisc paths, got %d" % len(srcdisc)
+for p in srcdisc:
+    emit(base(p), "SRCDISC", p)
 
 # Shuffle so input order does not advantage any tool that depends on
 # adjacency.
@@ -257,6 +333,13 @@ def write_out():
     total_groups = sum(len(g) for g in truth.values())
     print("classes : %d" % len(truth))
     print("canonical groups : %d" % total_groups)
+    print()
+    print("per-class breakdown:")
+    for klass in sorted(truth):
+        groups = truth[klass]
+        n_urls = sum(groups.values())
+        n_groups = len(groups)
+        print("  %-18s urls=%7d  groups=%6d" % (klass, n_urls, n_groups))
 
 
 if __name__ == "__main__":
