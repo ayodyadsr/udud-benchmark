@@ -7,7 +7,7 @@ across a fleet of assets?
 
 Everything here is measured on frozen, checksummed inputs and is reproducible
 from the recipe in Section 7. The raw measurement files live in `raw/`; the
-consolidated summary for this release is `raw/v22_results.csv`.
+consolidated summary for this release is `raw/v23_results.csv`.
 
 ## 1. The stage and what it has to deliver
 
@@ -42,13 +42,13 @@ input, each tool in its documented default mode.
 
 | Property | udud | best competitor | gap |
 |---|---|---|---|
-| Throughput | 272k URLs/sec | urldedupe 159k (near-passthrough) | 1.7x |
-| Peak memory | 13.6 MB | uro 35 MB | 2.6x lighter |
+| Throughput | 260k URLs/sec | urldedupe 159k (near-passthrough) | 1.6x |
+| Peak memory | 13.7 MB | uro 35 MB | 2.6x lighter |
 | Stability at scale | flat 13.8 MB to 6.25M URLs | none stays flat | n/a |
 | False merge rate (ground truth) | 0.39% | urless 8.6% (real deduper) | 22x lower |
 | Streaming | yes | uro, urldedupe yes | n/a |
 | Reduction | 83% | uro 90%, by deleting surface | see Section 4 |
-| CPU | 2.86 s | urldedupe 4.92 s | 1.7x |
+| CPU | 3.00 s | urldedupe 4.92 s | 1.6x |
 
 udud is first on throughput and first on peak memory in the same run, holds both
 flat into the multi-million-URL range, and has the lowest false merge rate of any
@@ -61,13 +61,13 @@ number and is explicit about the one place udud trades the other way (Section
 ### 3.1 Throughput
 
 Throughput is the input rate a single worker sustains. In a continuous program
-it sets fleet capacity directly: at 272k URLs/sec one udud worker clears a
-781k-URL asset in under three seconds.
+it sets fleet capacity directly: at 260k URLs/sec one udud worker clears a
+781k-URL asset in around three seconds.
 
 | Tool | Throughput (781k capture) | Relative to udud |
 |---|---:|---:|
-| **udud** | **272,000 URLs/sec** | 1.0x |
-| urldedupe | 159,000 URLs/sec | 0.58x (near-passthrough) |
+| **udud** | **260,000 URLs/sec** | 1.0x |
+| urldedupe | 159,000 URLs/sec | 0.61x (near-passthrough) |
 | uro | 45,000 URLs/sec | 0.16x |
 | urless | 10,000 URLs/sec | 0.04x |
 | uddup | did not finish | n/a |
@@ -81,14 +81,14 @@ Peak resident memory sets cost per worker and how many run side by side.
 
 | Tool | Peak memory (781k capture) | Relative to udud |
 |---|---:|---:|
-| **udud** | **13.6 MB** | 1.0x |
+| **udud** | **13.7 MB** | 1.0x |
 | uro | 35 MB | 2.6x |
 | urless | 45 MB | 3.3x |
 | urldedupe | 336 MB | 24x |
 | uddup | did not finish | n/a |
 
 udud has the lowest peak memory of every tool measured. Run a dozen assets in
-parallel and the difference between 13.6 MB and 336 MB per job is the difference
+parallel and the difference between 13.7 MB and 336 MB per job is the difference
 between one small shared box and a dedicated server.
 
 ### 3.3 Stability at scale
@@ -211,7 +211,7 @@ keeping the most classes.
 
 ### 5.3 CPU efficiency
 
-udud uses 2.86 CPU-seconds on the 781k capture, single core, against
+udud uses 3.00 CPU-seconds on the 781k capture, single core, against
 `urldedupe`'s 4.92 and `uro`'s 17.5. Wall time and CPU time match because the run
 is single-threaded, so the wall figures in Section 3 are also the CPU cost.
 
@@ -242,9 +242,9 @@ Cost is measured on a pinned clock so timings are low-variance and comparable:
 each tool is pinned to one core, the page cache is primed so every tool reads
 from RAM, and the reported wall time is the best of repeated runs. Peak memory is
 the maximum resident set across runs. udud figures are the shipping default
-(udud v22). Competitor figures use the documented invocation for each tool
+(udud v23). Competitor figures use the documented invocation for each tool
 (Section 7) and do not change between udud versions because the tools are
-unchanged. The consolidated data is `raw/v22_results.csv`.
+unchanged. The consolidated data is `raw/v23_results.csv`.
 
 A note on epochs. The headline corpus and the three smaller corpora were
 re-measured fresh for this release on one machine; absolute seconds differ from

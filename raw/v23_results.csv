@@ -1,0 +1,38 @@
+corpus,input_lines,tool,output_lines,wall_s,cpu_s,peak_rss_mb,throughput_urls_s,surface_recall_macro,note
+D_example_wb.full,781398,udud,129436,3.01,3.00,13.7,259594,0.835,udud v23 default (keeps distinct GraphQL ?query={...} values; corpus has no graphql GETs so output is identical to v22)
+D_example_wb.full,781398,urldedupe,293420,4.92,4.92,335.9,158820,1.000,near-passthrough
+D_example_wb.full,781398,uro,78470,17.48,17.47,34.9,44702,0.629,
+D_example_wb.full,781398,urless,74737,75.06,75.01,45.2,10410,0.674,
+D_example_wb.full,781398,uddup,,,,,,,DNF >900s O(n^2)
+D_example_gau.full,44943,udud,5013,0.12,0.12,3.5,374525,0.969,udud v23 default (no graphql GETs in corpus; output identical to v22)
+D_example_gau.full,44943,urldedupe,41657,0.21,0.21,21.8,214014,1.000,near-passthrough
+D_example_gau.full,44943,uro,4048,0.55,0.55,18.7,81714,0.746,
+D_example_gau.full,44943,urless,5228,0.62,0.62,31.2,72488,0.746,
+D_example_gau.full,44943,uddup,13096,81.50,81.50,18.7,551,0.738,v19 epoch (O(n^2); tool unchanged)
+D_vulnweb.full,15185,udud,1346,0.03,0.03,3.5,506166,0.945,udud v23 default (no graphql GETs in corpus; output identical to v22)
+D_vulnweb.full,15185,urldedupe,4052,0.03,0.03,7.2,506166,1.000,near-passthrough
+D_vulnweb.full,15185,uro,2362,0.22,0.22,17.2,69022,0.859,
+D_vulnweb.full,15185,urless,3416,0.88,0.88,30.5,17255,1.000,
+D_vulnweb.full,15185,uddup,13684,4.81,4.81,18.9,3157,0.577,v19 epoch (O(n^2); tool unchanged)
+D_synth.full,45410,udud,15269,0.10,0.10,3.9,454100,0.9961,controlled ground truth; no graphql GETs in corpus, output identical to v22 (false-merge rate unchanged)
+D_synth.full,45410,urldedupe,25415,0.13,0.13,15.5,349307,1.000,near-passthrough
+D_synth.full,45410,uro,5310,0.54,0.54,17.6,84092,0.8307,
+D_synth.full,45410,urless,5311,0.63,0.63,30.6,72079,0.9140,
+D_synth.full,45410,uddup,20322,139.11,139.11,21.8,326,0.8570,v19 epoch (O(n^2); tool unchanged)
+# udud v23 stability at scale (de-id wb replicated; distinct surface constant, so peak RAM stays flat):
+#   781398=13.7MB/260k_per_s  1562796=13.7MB/265k_per_s  3125592=13.8MB/262k_per_s  6251184=13.8MB/263k_per_s
+# udud v23 peak RAM by input slice (Wayback head-prefixes): 25k=3.1 50k=3.3 100k=3.5 200k=3.7 400k=3.7 781k=13.7 MB
+# udud v23 on the raw 1.1M apple wayback corpus (genuinely distinct surface): 1,104,691 URLs -> 25.3 MB / 3.90 s
+# false-merge rate (synth ground truth, = 1 - macro_recall): udud 0.39%  urldedupe 0%* (*near-passthrough)  urless 8.60%  uddup 14.30%  uro 16.93%
+# peak RAM rank (lowest best): udud 13.7 < uro 34.9 < urless 45.2 < urldedupe 335.9 ; uddup DNF
+# throughput rank (highest best): udud 260k > urldedupe 159k* > uro 45k > urless 10k ; uddup DNF (*near-passthrough)
+# v23 change vs v22: distinct GraphQL ?query={...} values are kept (operation graph is the surface, not the key name).
+#   Output is a strict SUPERSET of v22 on any corpus containing graphql GETs - only those lines move, every other line is byte-identical.
+#   The four public benchmark corpora carry ZERO graphql GET URLs (graphql is overwhelmingly POST), so v23 output_lines / surface_recall_macro
+#   are identical to v22 on every row. Verified 0 non-graphql collateral across all 4 corpora x {default,-k,-x,-F,-s,-a} (24 modes).
+#   Throughput cost is small (~3% on the 781k corpus, best-of-10 wall 2.92 -> 3.01s) and gated by an SSE memchr fast-path so the v22
+#   hot loop is unchanged for queries without a '{' (the overwhelming majority). Peak RAM is unchanged (no new structures, one extra
+#   conditional in clean_query and a lazy is_gql_query() call in is_garbage/sig-build, both bounded by the byte length of the query).
+# coverage note: keeping distinct graphql operations can only add covered surface, never remove it, so surface_recall is >= v22.
+# measurement: this machine, pinned core 2, page cache primed, best-of-10 wall (headline) / best-of-3 wall (smaller corpora and synth)
+# competitor coverage (surface_recall_macro) is unchanged across udud versions
