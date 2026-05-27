@@ -1,4 +1,4 @@
-corpus,input_lines,tool,output_lines,wall_s,cpu_s,peak_rss_mb,throughput_urls_s,surface_recall_macro,note
+urls_file,input_lines,tool,output_lines,wall_s,cpu_s,peak_rss_mb,throughput_urls_s,surface_recall_macro,note
 D_example_wb.full,781398,xcull,129411,2.87,2.86,23.0,272264,0.835,xcull v20 default (bare-fold)
 D_example_wb.full,781398,urldedupe,293420,4.92,4.92,335.9,158820,1.000,near-passthrough
 D_example_wb.full,781398,uro,78470,17.48,17.47,34.9,44702,0.629,
@@ -22,9 +22,9 @@ D_synth.full,45410,uddup,20322,139.11,139.11,21.8,326,0.8570,v19 epoch (O(n^2); 
 # xcull v20 stability at scale (de-id wb replicated; distinct surface constant, so peak RAM stays flat):
 #   781398=22MB/259k_per_s  1562796=22MB/263k_per_s  3125592=22MB/266k_per_s  6251184=22MB/260k_per_s
 # xcull v20 peak RAM by input slice (Wayback head-prefixes): 25k=3.3 50k=3.6 100k=3.9 200k=3.9 400k=3.9 781k=22.7 MB
-# xcull v20 on the raw 1.1M apple wayback corpus (genuinely distinct surface): 1,104,691 URLs -> 40.4 MB / 3.86 s
+# xcull v20 on the raw 1.1M apple wayback input (genuinely distinct surface): 1,104,691 URLs -> 40.4 MB / 3.86 s
 # false-merge rate (synth ground truth, = 1 - macro_recall): xcull 0.39%  urldedupe 0%* (*near-passthrough)  urless 8.60%  uddup 14.30%  uro 16.93%
 # peak RAM rank (lowest best): xcull 23.0 < uro 34.9 < urless 45.2 < urldedupe 335.9 ; uddup DNF
 # throughput rank (highest best): xcull 272k > urldedupe 159k* > uro 45k > urless 10k ; uddup DNF (*near-passthrough)
-# measurement: this machine, pinned core 2, page cache primed, best-of-3 wall (headline + smaller corpora re-measured fresh in the v20 epoch)
+# measurement: this machine, pinned core 2, page cache primed, best-of-3 wall (headline + smaller inputs re-measured fresh in the v20 epoch)
 # competitor coverage (surface_recall_macro) is unchanged across xcull versions; xcull v20 coverage is byte-for-byte identical to v19 (bare-fold removes only redundant lines, every folded class keeps a decorated survivor)

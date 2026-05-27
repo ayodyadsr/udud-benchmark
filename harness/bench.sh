@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Single-corpus benchmark harness (D_unified.full).
+# Single-input benchmark harness (D_unified.full).
 #
 # This is the canonical bench script: one input, five tools, N trials
 # per cell, best-of-N timing reported. Output goes to
@@ -11,7 +11,7 @@
 #   2. python3 harness/synth_eval.py    -> synth_*.csv (quality)
 #   3. python3 harness/stats.py         -> results_unified.csv (best run)
 #
-# Why one corpus only: the previous design mixed Wayback (cost/reach
+# Why one input only: the previous design mixed Wayback (cost/reach
 # without ground truth) and D_synth (small, with ground truth). That
 # meant the FMR row of the headline table came from a different input
 # than the throughput row, which made the report harder to verify by

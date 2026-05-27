@@ -4,15 +4,15 @@
 
 ## Anonymization
 
-### Why the corpus is transformed
+### Why the URLs are transformed
 
-The largest corpus in this benchmark is a real `waybackurls` capture of a
-confidential commercial target. The benchmark needs a corpus with real
+The largest set of URLs in this benchmark is a real `waybackurls` capture of a
+confidential commercial target. The benchmark needs URLs with real
 URL structure, real scanner noise, real session tokens and real
 parameter shapes, because that structure is exactly what a deduplicator
-is judged on. A synthetic corpus would not exercise the gates the tools
+is judged on. Synthetic URLs would not exercise the gates the tools
 disagree on. Publishing the raw capture would disclose the target's host
-inventory and route structure, so the corpus is de-identified before
+inventory and route structure, so the URLs are de-identified before
 release and only the de-identified bytes are published, measured and
 audited.
 
@@ -28,7 +28,7 @@ to the RFC 2606 reserved domain `example.com`.
 It deliberately keeps the following verbatim, because every structural
 decision the five tools make is taken on these and the experiment is
 only the same experiment if they are byte-identical between the original
-and the published corpus:
+and the published URLs:
 
 - the scheme, the port, every separator, every digit, every
   percent-escape `%xx`
@@ -39,7 +39,7 @@ and the published corpus:
 - the canonical recon parameter vocabulary (open-redirect / SSRF / LFI /
   pagination / locale / session / tracking keys), so the
   open-redirect/SSRF/LFI narrative stays concretely demonstrable on the
-  published corpus
+  published URLs
 - the matrix-parameter key names (`;jsessionid=`, `;sid=`, ...), with
   only the session value ciphered, so the authenticated-endpoint gate
   sees a byte-identical token
@@ -59,7 +59,7 @@ same public-suffix and extension structure, same query key set. `xcull`
 and `urldedupe` are largely structural, so their per-cell output is
 close to invariant under it. `urldedupe` is the near-invariance anchor
 (it is close to a verbatim passthrough); its output count moves by only
-{{urldedupe_drift_pct}} between the original and de-identified corpora,
+{{urldedupe_drift_pct}} between the original and de-identified URLs,
 the residual coming from the whitelist breaking perfect bijectivity at
 the token level.
 
@@ -67,7 +67,7 @@ But `xcull`'s noise filters and the keyword blacklists in `uro`, `urless`
 and `uddup` key on literal English tokens. De-identification
 legitimately changes what those filters match. For that reason the
 published artifact is not the original numbers relabelled. The entire
-benchmark was re-run from scratch on the de-identified corpus under the
+benchmark was re-run from scratch on the de-identified URLs under the
 same pinned clock and the same N. Every figure in this document is
 measured on exactly the bytes that are published, and every per-line
 audit listing in `AUDIT.md` is regenerated against those same bytes.
@@ -84,17 +84,17 @@ transform. It rests on three checks, all reproducible with
 2. Every verbatim-kept set is audited and contains no identity-bearing
    token; it is public-suffix, file-extension, structural-stem, scheme,
    generic-recon-parameter and matrix-key vocabulary only.
-3. A decisive per-line differential over every corpus: a token is a real
+3. A decisive per-line differential over every input file: a token is a real
    survival only if it is a maximal alphabetic token in both an input
    line and its corresponding output line. `anonymize.py` is strictly
    line-wise, so the lines align. This check returns zero across all
-   corpora. A scrambled run that merely happens to spell a short brand
+   input files. A scrambled run that merely happens to spell a short brand
    substring was a different token in the input line and is correctly
    not counted, which is unavoidable noise of any monoalphabetic cipher
-   over a corpus this size and is not a leak.
+   over a URL set this size and is not a leak.
 
 `verify_anon.py` exits non-zero if any of the three fails, and it is run
-as a release gate before the corpus is published.
+as a release gate before the URLs are published.
 
 ### Stated limitations
 
@@ -103,9 +103,9 @@ source as a determinism and readability device, not as a confidentiality
 control; confidentiality rests on the destruction of every
 identity-bearing token, not on secrecy of the key. URL path and route
 structure is retained by design, because a structural deduplicator
-benchmark is meaningless without it; the published corpus therefore
-still exposes the route shapes of the original capture, with all host,
+benchmark is meaningless without it; the published URLs therefore
+still expose the route shapes of the original capture, with all host,
 path and value identity removed. The reverse map is not published. The
 de-identified datasets are frozen with their own sha256 in
-`raw/datasets.csv` and are the only corpus the published numbers refer
+`raw/datasets.csv` and are the only URLs the published numbers refer
 to.

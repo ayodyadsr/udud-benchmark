@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Attack-surface Precision/Recall/F1 on the wayback / vulnweb / gau
-# corpora, using the same canonicalisation as harness/quality.py so the
+# inputs, using the same canonicalisation as harness/quality.py so the
 # truth and tool outputs are scored on identical templated signatures.
 #
 # Per pattern class c (host, js, html, srcdisc, matrix, param_ri):
@@ -33,7 +33,7 @@ RAW = os.path.join(HERE, "..", "raw")
 DATA = os.path.join(HERE, "..", "data")
 OUT = os.path.join(RAW, "outputs")
 
-CORPORA = ["D_example_wb.full", "D_vulnweb.full", "D_example_gau.full"]
+INPUTS = ["D_example_wb.full", "D_vulnweb.full", "D_example_gau.full"]
 TOOLS = ["xcull", "uro", "urldedupe", "urless", "uddup"]
 CLASSES = ["host", "js", "html", "srcdisc", "matrix", "param_ri"]
 
@@ -84,7 +84,7 @@ def main():
     rows = []                                 # per-class P/R/F1 per (ds, tool)
     summary = []                              # micro / macro aggregate
 
-    for ds in CORPORA:
+    for ds in INPUTS:
         truth, truth_lines = keyset_with_lines(os.path.join(DATA, ds))
         if truth is None:
             print("skip %s: no input" % ds, file=sys.stderr)

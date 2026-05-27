@@ -9,10 +9,10 @@ how much memory each worker costs, and whether a sensitive endpoint survives to
 be tested at all.
 
 This benchmark measures xcull against the four deduplicators most teams already
-run (`urldedupe`, `uro`, `urless`, `uddup`) on **one** 780,200-URL labeled
-corpus where the correct answer is known exactly. Every number in this
+run (`urldedupe`, `uro`, `urless`, `uddup`) on **one** labeled set of 780,200
+URLs where the correct answer is known exactly. Every number in this
 report, throughput, peak RAM, completion time, surface retained, and false
-merge rate, is measured on that same input so there is no cross-corpus
+merge rate, is measured on that same input so there is no cross-input
 confusion.
 
 Result in one line: xcull is first on completion time, first on throughput,
@@ -123,7 +123,7 @@ is the shipping default, and the per-class data is published unedited under
 ## How to trust these numbers
 
 - [`BENCHMARK.md`](BENCHMARK.md): the full report. How each tool was run
-  and measured, the labelled corpus, per-class quality, the trade-offs
+  and measured, the labeled URLs, per-class quality, the trade-offs
   stated plainly, and the reproduce recipe.
 - [`AUDIT.md`](AUDIT.md): a per-line security audit of xcull's most
   aggressive id-folding mode. Every removed URL is classified by hand to
@@ -136,20 +136,20 @@ is the shipping default, and the per-class data is published unedited under
   detail. [`raw/outputs/`](raw/outputs/) holds each tool's full output
   so the quality numbers can be recomputed without re-running the tools.
 
-The corpus is generated deterministically (random seed fixed) and
+The URLs are generated deterministically (random seed fixed) and
 checksummed in [`raw/datasets.csv`](raw/datasets.csv), so every number
 here is reproducible by running `harness/synth_gen.py` and then
 `harness/bench.sh`.
 
-## Corpus
+## URLs file
 
-| Corpus | URLs | Canonical groups | What it is |
+| URLs file | URL count | Canonical groups | What it is |
 |---|---:|---:|---|
-| `D_unified.full` | 780,200 | 55,920 | one labelled known-answer corpus designed to match the shape of a real recon capture (heavy templated bulk + long-tail distinct endpoints + small enumerable IDOR surface) |
+| `D_unified.full` | 780,200 | 55,920 | one labeled known-answer URL set designed to match the shape of a real recon capture (heavy templated bulk + long-tail distinct endpoints + small enumerable IDOR surface) |
 
-This is the only corpus used. The previous benchmark mixed a real Wayback
+This is the only set of URLs used. The previous benchmark mixed a real Wayback
 capture (for cost/reach without ground truth) with a smaller controlled
-corpus (for false merge rate with ground truth). That meant the false merge
+set (for false merge rate with ground truth). That meant the false merge
 rate row came from a different input than the throughput row, which made
 the report harder to verify by hand. `D_unified.full` supports every metric
 from one input.

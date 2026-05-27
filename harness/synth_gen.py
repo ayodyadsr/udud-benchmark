@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Unified labeled corpus generator (D_unified.full, ~780k URLs).
+# Unified labeled input generator (D_unified.full, ~780k URLs).
 #
-# This is the single corpus used by both xcull and xcull-benchmark. It
+# This is the single input used by both xcull and xcull-benchmark. It
 # replaces the previous mix of D_synth (45k, controlled) + D_example_wb
 # (781k, real-but-unlabeled) so every metric in every report comes from
 # one input with one ground truth.
@@ -26,7 +26,7 @@
 #     (total canonical groups). A merge that collapses two distinct
 #     groups into one is counted once per destroyed group.
 #   - Throughput, peak RSS, and wall time are measured on this same
-#     corpus, so all five headline metrics share an input.
+#     input, so all five headline metrics share an input.
 
 import hashlib
 import json
@@ -267,7 +267,7 @@ for area in AREAS:
                 distinct.append("/%s/v%d/%s/%s" % (area, ver, svc, verb))
 
 # de-duplicate just in case any hand-curated path collided with the
-# programmatic surface, then cap at 50,000 to keep the corpus near the
+# programmatic surface, then cap at 50,000 to keep the input near the
 # 780k headline. The cap is deterministic because the input list order
 # is fixed.
 seen = set()

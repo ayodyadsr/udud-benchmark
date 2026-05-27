@@ -94,7 +94,7 @@ def load_truth():
 # (NUMERIC_ID stays OUT of enumerable here, matching xcull's default-mode
 # content-section template). A /order/<uuid> path under no content-section
 # parent IS an enumerable object surface (UUID stays IN). HEX_HASH and
-# JSESSIONID are kept enumerable because the synth corpus uses them as
+# JSESSIONID are kept enumerable because the synth input uses them as
 # distinct object identifiers and rotating session tokens respectively,
 # both of which a recon pipeline tests value-by-value.
 ENUMERABLE_CLASSES = {"UUID", "HEX_HASH", "JSESSIONID"}
@@ -259,7 +259,7 @@ def evaluate_output(out_path, truth):
             klass, gid = label
             # restrict GENUINE_DISTINCT to the ground-truth set (O(1) lookup
             # matters when GENUINE_DISTINCT carries tens of thousands of
-            # groups in the unified corpus).
+            # groups in the unified input).
             if klass == "GENUINE_DISTINCT":
                 if gid not in gd_groups:
                     continue
@@ -304,7 +304,7 @@ def run_tool(tool, input_path, out_dir):
     }[name]
     try:
         if name == "uddup":
-            # uddup is O(n^2). On the 780k unified corpus it cannot finish;
+            # uddup is O(n^2). On the 780k unified input it cannot finish;
             # we still call it so the DNF is measured, with a tight cap.
             proc = subprocess.run([bin_path, "-u", input_path],
                                   capture_output=True, timeout=120)

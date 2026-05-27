@@ -27,12 +27,12 @@ used.
 
 ## uddup measurement asymmetry (declared)
 
-uddup is O(n^2) and buffers the whole corpus. It contributes no point to
+uddup is O(n^2) and buffers the whole input. It contributes no point to
 the linear-time head-to-head; its scientific role is to show the
 asymptotic blow-up. Running N=10 tight-CI trials on it is wasted, and
 above ~50k lines a single run already exceeds the 300 s cap. It is
 therefore measured with **N=3** on inputs <= 50,000 lines plus the two
-secondary corpora (enough to establish the quadratic curve), and marked
+secondary URL sets (enough to establish the quadratic curve), and marked
 **DNF** (300 s wall cap) above that. Every tool that competes on the
 linear-time head-to-head receives the full N=10 + 95% CI treatment.
 

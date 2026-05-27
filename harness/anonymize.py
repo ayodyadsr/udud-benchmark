@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Structure-preserving de-identification for the benchmark corpora.
+# Structure-preserving de-identification for the benchmark inputs.
 #
 # Goal: remove the confidential target's identity from host and path while
 # keeping every byte-class, length, separator, public-suffix, extension and
@@ -17,7 +17,7 @@
 #  - uro / urless / uddup key on literal English keywords (e.g. urless's
 #    blog/news/article blacklist); de-identification legitimately changes
 #    their behaviour, so their published numbers are honestly re-measured
-#    on the anonymised corpus and labelled as such.
+#    on the anonymised input and labelled as such.
 #
 # The permutation key is fixed in source but is NOT a confidentiality
 # control; it is a readability/determinism device. The published artifact
@@ -77,7 +77,7 @@ _SCHEME_KEEP = {"http", "https", "ftp", "ws", "wss"}
 # pagination / locale / session / tracking). These names are universal
 # and carry zero target identity, so they are kept verbatim: the
 # open-redirect / SSRF / LFI narrative stays concretely demonstrable on
-# the published corpus and the structural key-set dedup behaves the same.
+# the published input and the structural key-set dedup behaves the same.
 # ANY parameter name not in this set (a product/brand custom param) is
 # ciphered, so no identity leaks through a parameter name.
 _PARAM_KEEP = {
@@ -112,7 +112,7 @@ _MATRIX_KEEP = {
 }
 # the confidential registrable domain -> RFC2606 reserved domain.
 # The published de-identifier loads the apex from the ANON_APEX environment
-# variable; the actual target name was set at the time the released corpus
+# variable; the actual target name was set at the time the released input
 # was generated and is not committed to this repository. If ANON_APEX is
 # empty the apex-remap branch is a no-op and the generic public-suffix
 # branch ciphers the registrable name like any other custom label, which
@@ -289,7 +289,7 @@ def xform(url):
 
 
 # url-structural tokens kept verbatim inside query values so val_has_url /
-# redirect-target detection stays truthful on the published corpus and the
+# redirect-target detection stays truthful on the published input and the
 # open-redirect/SSRF narrative is still demonstrable; identity-bearing
 # letter runs around them are still ciphered
 _VAL_KEEP = ("https", "http", "ftp", "www")

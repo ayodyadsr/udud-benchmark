@@ -2,7 +2,7 @@
 # Confidentiality proof for the de-identification transform (anonymize.py).
 #
 # This does not eyeball the output for brand substrings. A monoalphabetic
-# cipher over a 781k-line corpus will, by chance, emit short letter
+# cipher over a 781k-line input will, by chance, emit short letter
 # triples like "woa" or "ipad" inside scrambled runs or between digits;
 # those are cipher OUTPUT, not surviving plaintext, and substring grep
 # cannot tell the difference. The argument here is structural.
@@ -17,12 +17,12 @@
 #      explicit structural/recon whitelists and (ii) non-alphabetic
 #      bytes (digits, punctuation, %xx, separators) which carry no
 #      identity. Every whitelist is shown brand-clean.
-#   C. Differential corpus check: every maximal alphabetic token in the
+#   C. Differential input check: every maximal alphabetic token in the
 #      ORIGINAL that is not a whitelist member (i.e. every identity
 #      candidate) is absent, at a structural position, from the OUTPUT.
 #
 # A + B prove identity cannot survive; C corroborates on the real
-# corpora and separates the explained cipher-coincidence noise.
+# inputs and separates the explained cipher-coincidence noise.
 
 import sys, os, string, glob, subprocess, importlib.util
 

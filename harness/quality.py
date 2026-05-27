@@ -38,7 +38,7 @@ and in `raw_distinct_cov` here (descriptive only).
 The ground truth is also gated to well-formed URLs with valid hosts and
 no URL-in-path injection, so scanner payloads do not inflate it.
 
---audit dumps the lost templated members per (corpus,tool,class) to
+--audit dumps the lost templated members per (input,tool,class) to
 ../raw/audit/ for hand classification before any claim is made.
 
 stdlib only. Inputs: ../data/D_*.full and ../raw/outputs/<ds>.<tool>.out
@@ -54,7 +54,7 @@ OUT  = os.path.join(RAW, "outputs")
 AUDIT_DIR = os.path.join(RAW, "audit")
 AUDIT = "--audit" in sys.argv
 
-CORPORA = ["D_example_wb.full", "D_vulnweb.full", "D_example_gau.full"]
+INPUTS = ["D_example_wb.full", "D_vulnweb.full", "D_example_gau.full"]
 TOOLS   = ["xcull", "uro", "urldedupe", "urless", "uddup"]
 
 SRC_EXT = {"bak","old","orig","save","swp","swo","tmp","temp","sql","db",
@@ -233,7 +233,7 @@ def keyset(path_to_file, keep_examples=False):
 def main():
     os.makedirs(AUDIT_DIR, exist_ok=True)
     qrows, orows, crows = [], [], []
-    for ds in CORPORA:
+    for ds in INPUTS:
         ipath = os.path.join(DATA, ds)
         if not os.path.exists(ipath):
             print(f"skip {ds}: no input", file=sys.stderr); continue

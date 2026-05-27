@@ -6,7 +6,7 @@ one of the four established deduplicators, and what does that choice cost or
 save across a fleet of assets?
 
 Every number in this report comes from one input: the 780,200-URL
-known-answer corpus `data/D_unified.full`. The corpus is generated
+known-answer set `data/D_unified.full`. The URLs are generated
 deterministically by `harness/synth_gen.py`, so the ground truth, the
 reduction ratio, the throughput, the peak memory, and the false merge
 rate all share the same source data. The recipe is in Section 7 and the
@@ -41,7 +41,7 @@ caveat, the reproduce recipe, and the limitations.
 
 ## 2. Result summary
 
-One corpus, 780,200 URLs, every tool in its documented default mode, pinned
+One input file, 780,200 URLs, every tool in its documented default mode, pinned
 to one core, page cache primed, best of five timed trials.
 
 | Metric | xcull | urldedupe | uro | urless | uddup |
@@ -109,7 +109,7 @@ job is the difference between one small shared box and a dedicated server.
 
 ## 4. Security quality
 
-### 4.1 False merge rate on the known-answer corpus
+### 4.1 False merge rate on the known-answer URLs
 
 Because `D_unified.full` is generated with a fixed set of canonical endpoint
 groups whose correct groupings are recorded in `data/D_unified.truth.json`,
@@ -274,18 +274,18 @@ via `runstat`'s `getrusage` capture. xcull figures are the shipping default
 
 Input is frozen and checksummed (SHA-256 in `raw/datasets.csv`):
 
-| Corpus | URLs | Bytes | Canonical groups |
+| URLs file | URL count | Bytes | Canonical groups |
 |---|---:|---:|---:|
 | `D_unified.full` | 780,200 | 44,168,044 | 55,920 |
 
 Recipe:
 
 ```sh
-# 1. regenerate the corpus from its deterministic generator
+# 1. regenerate the URLs from its deterministic generator
 #    (random seed is fixed, so the bytes match raw/datasets.csv)
 python3 harness/synth_gen.py
 
-# 2. verify the corpus matches the published SHA-256
+# 2. verify the URLs match the published SHA-256
 sha256sum -c <(awk -F, 'NR>1{print $4"  data/"$1}' raw/datasets.csv)
 
 # 3. build xcull (default configuration)
@@ -315,17 +315,17 @@ quality can be recomputed without re-running the tools.
 
 ## 8. Limitations, stated plainly
 
-- One input. The benchmark is run on one 780k known-answer corpus. The
-  corpus distribution is designed to match the shape of a real recon
+- One input. The benchmark is run on one 780k known-answer set of URLs. The
+  URL distribution is designed to match the shape of a real recon
   capture (heavy templated bulk plus a long tail of distinct endpoints
   plus a small enumerable IDOR surface), but it is one design. A team
-  running real traffic should also measure their own corpora.
+  running real traffic should also measure their own URLs.
 - One machine. Timings are from a single CPU under a pinned clock.
   Absolute seconds differ on other hardware; the ratios between tools are
   the portable result.
-- Surface retained is a corpus-defined notion of a real endpoint. The
-  classifier and ground truth encode the corpus author's judgement about
-  what counts as a distinct endpoint. The raw outputs and the labelled
+- Surface retained is an input-defined notion of a real endpoint. The
+  classifier and ground truth encode the input author's judgement about
+  what counts as a distinct endpoint. The raw outputs and the labeled
   input are published so that judgement can be re-checked.
 - xcull's keep-bias is a default, not a law. This report measures the
   shipping default, which favors surface retained over a minimal output.

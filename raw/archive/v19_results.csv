@@ -1,4 +1,4 @@
-corpus,input_lines,tool,output_lines,wall_s,peak_rss_mb,surface_recall_macro,note
+urls_file,input_lines,tool,output_lines,wall_s,peak_rss_mb,surface_recall_macro,note
 D_example_wb.full,781398,xcull,131633,2.9,20.4,0.835,xcull v19 default
 D_example_wb.full,781398,urldedupe,293420,9.41,344.0,1.000,near-passthrough
 D_example_wb.full,781398,uro,78470,39.76,36.0,0.629,
@@ -21,4 +21,4 @@ D_synth.full,45410,urless,5311,0.72,30.6,0.914,
 D_synth.full,45410,uddup,20322,139.11,21.8,0.857,
 # xcull v19 default peak memory scaling (Wayback slices): 25k=3.0MB 50k=3.4MB 100k=3.7MB 200k=3.8MB 400k=3.5MB 781k=20.4MB
 # competitor numbers from raw/summary.csv (N=10, Student-t 95% CI); tools unchanged across xcull versions
-# surface_recall_macro from raw/wayback_prf.csv (real corpora) and raw/synth_prf.csv (synth)
+# surface_recall_macro from raw/wayback_prf.csv (real inputs) and raw/synth_prf.csv (synth)

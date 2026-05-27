@@ -26,18 +26,18 @@ each removed line, was a reachable, distinct, attackable endpoint lost.
 
 Source of truth for the raw listings: `raw/audit/D_*.xcull.*.lost`
 (regenerated 2026-05-20). The output of v14, v15, and the current `-F` mode is
-byte-identical on all four corpora (verified by SHA-256 on D_synth.full,
+byte-identical on all four URL sets (verified by SHA-256 on D_synth.full,
 D_example_wb.full, D_example_gau.full, and D_vulnweb.full), so the audit applies
 to id-folding mode unchanged.
 
-Token note: the two large corpora are published in de-identified form,
+Token note: the two large URL sets are published in de-identified form,
 so the URLs below carry ciphered host labels and path segments
 (`atzqix.example.com`, `qrs-qsw.bwiyxoo.example.com`, ...). The cipher
 is a fixed deterministic monoalphabetic letter permutation documented
 in Section 4.1 of BENCHMARK.md; the structural shape is preserved
 byte-for-byte. Where the audit decision turns on a structural property
 (public-suffix label, file extension, matrix-key) that property is
-verbatim in the corpus.
+verbatim in the URLs.
 
 Classification key:
 
@@ -81,7 +81,7 @@ http://www.w3.org/TR/html4/loose.dtd
 Real loss: 0. Note the metric's "truth" for vulnweb host is itself
 polluted by exactly the garbage xcull is built to remove. v14 reduced
 this category from 11 (v13) to 8 by keeping the three wildcard-mirror
-hosts that have deep in-corpus paths (see the html / wildcard residual
+hosts that have deep in-input paths (see the html / wildcard residual
 note below).
 
 ### xcull js, 1 removed (truth 49, retained 97.959%)
@@ -147,7 +147,7 @@ http://www.hotelresidenceitalia.com.vulnweb.com/signup.php
 http://www.hotelresidenceitalia.com.vulnweb.com/userinfo.php
 ```
 
-These are real in-corpus paths under acunetix wildcard DNS that all
+These are real in-input paths under acunetix wildcard DNS that all
 route to the same `testphp.vulnweb.com` backend. The canonical
 `testphp.vulnweb.com` paths (`/login.php`, `/AJAX/...`, `/hpp/...`,
 `/Mod_Rewrite_Shop`, etc.) are still retained as the primary
@@ -155,11 +155,11 @@ signatures, so the wildcard mirror set is conservatively retained
 duplicate noise rather than new surface. Documented tradeoff: v14
 errs on the side of recall for deep paths under the embedded-domain
 predicate, because the same predicate was destroying a real
-authenticated endpoint on the gau corpus (Section 2 of BENCHMARK.md).
+authenticated endpoint on the gau URLs (Section 2 of BENCHMARK.md).
 
 ## D_example_gau.full
 
-Every xcull retention class on this corpus is 100 percent. The lost
+Every xcull retention class on these URLs is 100 percent. The lost
 files in `raw/audit/` for `D_example_gau.full.xcull.*` are empty.
 
 The v14 fix specifically restores the authenticated endpoint
@@ -186,7 +186,7 @@ http://jxsti.info.example.com/
 
 - Four `tv.example.com` hosts (cipher of `linear-*.tv` and
   `download-aoc.tv` media-delivery hostnames). Each appears in the
-  corpus with only one shallow `/` line, no deeper path. The
+  input with only one shallow `/` line, no deeper path. The
   embedded-domain shallow-path filter drops them because the host
   matches the spam predicate (digit-free registrable name in front of
   a public-suffix label `tv`) and the path is shallow. FOLD: no
@@ -194,7 +194,7 @@ http://jxsti.info.example.com/
   represented in the kept host-root deduplication set through other
   `tv.example.com`-suffixed hosts that do have deep paths.
 - `jxsti.info.example.com/` (cipher of a real digit-free
-  `*.info.<target>` host). This is the second-corpus form of the same
+  `*.info.<target>` host). This is the second-URL-set form of the same
   precision-recall residual recorded in v13: the host appears with
   only `/` and `/robots.txt`, both shallow, so the embedded-domain
   shallow-path filter still fires. REAL (1 host, 2 lines).
@@ -300,13 +300,13 @@ Real redirect/SSRF/include endpoint destroyed: 0.
 
 Across 781,398 + 44,943 + 15,185 input URLs, xcull v14 destroys zero real
 attack surface, with exactly two documented design-boundary residuals,
-both on the Wayback corpus:
+both on the Wayback URLs:
 
 1. One genuine minimal host, `jxsti.info.example.com` (2 lines), a
    precision-recall false positive of the embedded-domain shallow-path
    filter. Same predicate that correctly rejects the vulnweb wildcard
    spam set and that v14 narrowed so it would stop destroying the
-   gau-corpus authenticated endpoint.
+   gau-URLs authenticated endpoint.
 2. Two legacy promo `.html` pages with a literal space in the filename
    (0.15% of html), from conservative whitespace rejection.
 
@@ -318,7 +318,7 @@ policy, scanner noise, or documented metric conservatism, and is
 re-checkable from the `raw/audit/` listings.
 
 Lineage diff against v13 (archived at `raw/v13/`): v14 restores one
-real authenticated endpoint on the gau corpus
+real authenticated endpoint on the gau URLs
 (`qeif.tv.example.com/qeif/p1/dc/pqawjqix`) and conservatively retains
 twenty-six deep paths under vulnweb wildcard-mirror subdomains as
 distinct signatures. The canonical testphp.vulnweb.com routes those
