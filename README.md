@@ -129,6 +129,10 @@ is the shipping default, and the per-class data is published unedited under
   aggressive id-folding mode. Every removed URL is classified by hand to
   confirm it removed redundancy, not surface. The shipping default removes
   a strict subset of those lines, so the finding carries over.
+- [`COMPARISON.md`](COMPARISON.md): a 99-row side-by-side demo of the
+  kinds of differences a recon engineer notices at a glance (object IDs,
+  session tokens, slug folding, query keyset merges). Not a benchmark,
+  just a quick visual contrast against the four baselines.
 - `raw/`: the underlying measurement data.
   [`raw/trials.csv`](raw/trials.csv) is the per-trial cost detail;
   [`raw/synth_prf.csv`](raw/synth_prf.csv) and
