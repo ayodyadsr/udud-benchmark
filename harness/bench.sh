@@ -23,7 +23,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 DATA="$ROOT/data"
 RAW="$ROOT/raw"
 OUTDIR="$RAW/outputs"
-RUNSTAT=/home/osa/recon/tools/udud/runstat
+RUNSTAT=/home/osa/recon/tools/xcull/runstat
 PIN="taskset -c 2"
 N=5                            # timed trials per tool (best-of-N)
 TIMEOUT=600                    # per-run wall cap (s); above = DNF
@@ -43,7 +43,7 @@ echo "dataset=$DATASET lines=$LINES bytes=$BYTES" | tee -a "$LOG"
 # prime page cache
 cat "$IN" > /dev/null
 
-TOOLS=(udud uro urldedupe urless uddup)
+TOOLS=(xcull uro urldedupe urless uddup)
 
 # uddup is O(n^2); on a 780k input it cannot finish. We still RUN it
 # (no skip-by-name) so the DNF is measured rather than asserted; the
@@ -52,7 +52,7 @@ trials_for(){ [ "$1" = uddup ] && echo 1 || echo "$N"; }
 
 toolcmd() {
   case "$1" in
-    udud)      echo "udud < '$IN' > '$OUT'" ;;
+    xcull)      echo "xcull < '$IN' > '$OUT'" ;;
     uro)       echo "uro -i '$IN' > '$OUT'" ;;
     urldedupe) echo "urldedupe < '$IN' > '$OUT'" ;;
     urless)    echo "urless -nb < '$IN' > '$OUT'" ;;

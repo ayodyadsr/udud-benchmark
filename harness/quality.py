@@ -55,7 +55,7 @@ AUDIT_DIR = os.path.join(RAW, "audit")
 AUDIT = "--audit" in sys.argv
 
 CORPORA = ["D_example_wb.full", "D_vulnweb.full", "D_example_gau.full"]
-TOOLS   = ["udud", "uro", "urldedupe", "urless", "uddup"]
+TOOLS   = ["xcull", "uro", "urldedupe", "urless", "uddup"]
 
 SRC_EXT = {"bak","old","orig","save","swp","swo","tmp","temp","sql","db",
            "sqlite","mdb","zip","tar","gz","tgz","bz2","rar","7z","war",
@@ -137,7 +137,7 @@ def parts(line):
     u = line.strip()
     if not u: return None
     raw = u
-    u = _html.unescape(u)               # &amp; -> & (udud does this; symmetric)
+    u = _html.unescape(u)               # &amp; -> & (xcull does this; symmetric)
     if "://" not in u: u = "http://" + u
     try: s = urlsplit(u)
     except ValueError: return None

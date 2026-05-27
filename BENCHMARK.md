@@ -1,7 +1,7 @@
-# udud benchmark: the full report
+# xcull benchmark: the full report
 
 This is the evidence behind the summary in [`README.md`](README.md). The
-question it answers is direct: for a recon pipeline, why run udud instead of
+question it answers is direct: for a recon pipeline, why run xcull instead of
 one of the four established deduplicators, and what does that choice cost or
 save across a fleet of assets?
 
@@ -44,7 +44,7 @@ caveat, the reproduce recipe, and the limitations.
 One corpus, 780,200 URLs, every tool in its documented default mode, pinned
 to one core, page cache primed, best of five timed trials.
 
-| Metric | udud | urldedupe | uro | urless | uddup |
+| Metric | xcull | urldedupe | uro | urless | uddup |
 |---|---:|---:|---:|---:|---:|
 | Completion time | **1.73 s** | 2.27 s | 7.36 s | 8.83 s | DNF (>600 s) |
 | Throughput | **451,000 URLs/s** | 343,000 URLs/s | 106,000 URLs/s | 88,000 URLs/s | DNF |
@@ -54,8 +54,8 @@ to one core, page cache primed, best of five timed trials.
 | Attack surface retained | **100 %** | 100 % (passthrough) | 97.77 % | 96.82 % | DNF |
 | False merge rate | **0 %** | 0 % (passthrough) | 2.23 % | 3.18 % | DNF |
 
-udud is first on completion time, first on throughput, first on peak RAM, and
-first on false merge rate in the same run. `urldedupe` matches udud on false
+xcull is first on completion time, first on throughput, first on peak RAM, and
+first on false merge rate in the same run. `urldedupe` matches xcull on false
 merge rate only as a passthrough artifact: it keeps 380,650 lines for 55,920
 canonical groups, so it cannot merge two groups by mistake because it folds
 almost nothing. `uro` and `urless` produce a shorter list by destroying whole
@@ -69,9 +69,9 @@ cost grows quadratically and it times out past roughly 50,000 URLs.
 Completion time is the wall clock to finish one input on one core. It is the
 most direct answer to "how fast does my pipeline move".
 
-| Tool | Completion (780,200 URLs) | Relative to udud |
+| Tool | Completion (780,200 URLs) | Relative to xcull |
 |---|---:|---:|
-| **udud** | **1.73 s** | 1.0x |
+| **xcull** | **1.73 s** | 1.0x |
 | urldedupe | 2.27 s | 1.31x slower |
 | uro | 7.36 s | 4.25x slower |
 | urless | 8.83 s | 5.10x slower |
@@ -80,12 +80,12 @@ most direct answer to "how fast does my pipeline move".
 ### 3.2 Throughput
 
 Throughput is the input rate a single worker sustains. In a continuous program
-it sets fleet capacity directly: at 451k URLs/sec one udud worker clears a
+it sets fleet capacity directly: at 451k URLs/sec one xcull worker clears a
 780k-URL asset in under two seconds.
 
-| Tool | Throughput | Relative to udud |
+| Tool | Throughput | Relative to xcull |
 |---|---:|---:|
-| **udud** | **451,000 URLs/s** | 1.0x |
+| **xcull** | **451,000 URLs/s** | 1.0x |
 | urldedupe | 343,000 URLs/s | 0.76x (near-passthrough) |
 | uro | 106,000 URLs/s | 0.24x |
 | urless | 88,000 URLs/s | 0.20x |
@@ -95,15 +95,15 @@ it sets fleet capacity directly: at 451k URLs/sec one udud worker clears a
 
 Peak resident memory sets cost per worker and how many run side by side.
 
-| Tool | Peak memory | Relative to udud |
+| Tool | Peak memory | Relative to xcull |
 |---|---:|---:|
-| **udud** | **22.6 MB** | 1.0x |
+| **xcull** | **22.6 MB** | 1.0x |
 | uro | 27.6 MB | 1.22x |
 | urless | 40.5 MB | 1.79x |
 | urldedupe | 193.8 MB | 8.6x |
 | uddup | did not finish | n/a |
 
-udud has the lowest peak memory of every tool that produces output. Run a
+xcull has the lowest peak memory of every tool that produces output. Run a
 dozen assets in parallel and the difference between 22.6 MB and 193.8 MB per
 job is the difference between one small shared box and a dedicated server.
 
@@ -120,16 +120,16 @@ from every downstream scan.
 
 | Tool | Canonical groups | Destroyed | False merge rate | Surface retained |
 |---|---:|---:|---:|---:|
-| **udud** | 55,920 | 0 | **0.00 %** | 100.00 % |
+| **xcull** | 55,920 | 0 | **0.00 %** | 100.00 % |
 | urldedupe | 55,920 | 0 | 0.00 % (near-passthrough) | 100.00 % |
 | uro | 55,920 | 1,248 | 2.23 % | 97.77 % |
 | urless | 55,920 | 1,777 | 3.18 % | 96.82 % |
 | uddup | — | — | DNF | DNF |
 
-udud has a 0 % false merge rate, the same as `urldedupe`, but reaches it the
+xcull has a 0 % false merge rate, the same as `urldedupe`, but reaches it the
 opposite way: `urldedupe`'s 0 % is the passthrough artifact, a tool that
 keeps 380,650 lines for 55,920 groups cannot merge two groups by mistake and
-has not deduplicated either. udud reaches 0 % while removing 85.2 % of the
+has not deduplicated either. xcull reaches 0 % while removing 85.2 % of the
 input, so it is the only tool in the table that achieves zero false merges
 and a real reduction at the same time.
 
@@ -138,7 +138,7 @@ and a real reduction at the same time.
 The per-class detail in [`raw/synth_eval.csv`](raw/synth_eval.csv) shows the
 false merges as full-class deletions, not as scattered noise:
 
-| Class | Total groups | udud kept | uro kept | urless kept |
+| Class | Total groups | xcull kept | uro kept | urless kept |
 |---|---:|---:|---:|---:|
 | GENUINE_DISTINCT | 50,000 | **50,000** | 49,034 | 48,488 |
 | JSESSIONID | 5 | **5** | **0** | **0** |
@@ -156,20 +156,20 @@ false merges as full-class deletions, not as scattered noise:
 `uro` deletes every JSESSIONID, every TITLE_SLUG, every UUID, and two
 NUMERIC_ID classes; `urless` deletes every JSESSIONID and every TITLE_SLUG.
 Each deleted class is one endpoint surface that no downstream scan ever
-visits. udud keeps every canonical group.
+visits. xcull keeps every canonical group.
 
-### 4.3 The one trade udud makes on purpose
+### 4.3 The one trade xcull makes on purpose
 
-udud is keep-biased. When a URL is ambiguous, for example it carries an
+xcull is keep-biased. When a URL is ambiguous, for example it carries an
 object ID, a session token, or an opaque hash, the default keeps it rather
 than fold it away, because that is where broken-object-level-authorization
 and IDOR bugs hide. Collapsing `/order/1001` and `/order/1002` to one line
 erases the evidence that other objects exist.
 
 The cost is a larger output than the aggressive folders produce. On
-`D_unified.full` udud emits 115,764 lines against `uro`'s 64,667. Part of
-that gap is real surface udud keeps and `uro` deletes (Section 4.2); part is
-genuine redundancy udud chose not to risk folding, for example the same
+`D_unified.full` xcull emits 115,764 lines against `uro`'s 64,667. Part of
+that gap is real surface xcull keeps and `uro` deletes (Section 4.2); part is
+genuine redundancy xcull chose not to risk folding, for example the same
 endpoint reached with many rotating session tokens. The trade is intentional:
 a few thousand lines a scanner absorbs in seconds, in exchange for not
 silently dropping a testable endpoint. Teams that prefer a smaller, more
@@ -199,7 +199,7 @@ Section 4.1 changes.
 
 ### 5.1 Streaming
 
-udud reads standard input and writes standard output, so it drops into any
+xcull reads standard input and writes standard output, so it drops into any
 pipeline between collection and scanning. The default mode buffers until end
 of input because a covering superset of a query key-set can arrive after a
 subset, so the kept output is written once, in first-seen order, at end of
@@ -214,18 +214,18 @@ shrinks the output.
 
 | Tool | Output lines | Reduction | Surface retained |
 |---|---:|---:|---:|
-| **udud** | 115,764 | 85.2 % | **100 %** |
+| **xcull** | 115,764 | 85.2 % | **100 %** |
 | urldedupe | 380,650 | 51.2 % | 100 % (pass) |
 | uro | 64,667 | 91.7 % | 97.77 % |
 | urless | 64,138 | 91.8 % | 96.82 % |
 
 `uro` and `urless` show a higher reduction only by deleting whole endpoint
-classes (Section 4.2). udud removes 85 % of the lines while keeping every
+classes (Section 4.2). xcull removes 85 % of the lines while keeping every
 canonical group.
 
 ### 5.3 CPU efficiency
 
-udud uses 1.74 CPU-seconds on `D_unified.full`, single core, against
+xcull uses 1.74 CPU-seconds on `D_unified.full`, single core, against
 `urldedupe`'s 2.27 and `uro`'s 7.36. Wall time and CPU time match because
 the run is single-threaded, so the wall figures in Section 3 are also the
 CPU cost.
@@ -266,8 +266,8 @@ Cost is measured on a pinned clock so timings are low-variance and
 comparable: each tool is pinned to one core (`taskset -c 2`), the page cache
 is primed before the first trial, and the reported wall time is the best of
 five trials. Peak memory is the maximum resident set across runs, measured
-via `runstat`'s `getrusage` capture. udud figures are the shipping default
-(udud v23). Competitor figures use the documented invocation for each tool
+via `runstat`'s `getrusage` capture. xcull figures are the shipping default
+(xcull v23). Competitor figures use the documented invocation for each tool
 (Section 7).
 
 ## 7. Reproducing the benchmark
@@ -288,10 +288,10 @@ python3 harness/synth_gen.py
 # 2. verify the corpus matches the published SHA-256
 sha256sum -c <(awk -F, 'NR>1{print $4"  data/"$1}' raw/datasets.csv)
 
-# 3. build udud (default configuration)
-git clone https://github.com/ayodyadsr/udud /tmp/udud
+# 3. build xcull (default configuration)
+git clone https://github.com/xcull/xcull /tmp/xcull
 cc -O3 -march=native -flto -Wall -Wno-misleading-indentation \
-   -o /usr/local/bin/udud /tmp/udud/udud.c
+   -o /usr/local/bin/xcull /tmp/xcull/xcull.c
 
 # 4. measure cost (one input, five tools, five trials per tool)
 harness/bench.sh
@@ -304,7 +304,7 @@ Tool invocations (also in `harness/INVOCATION.md`):
 
 | Tool | Invocation |
 |---|---|
-| udud | `udud < D_unified.full > out` |
+| xcull | `xcull < D_unified.full > out` |
 | uro | `uro -i D_unified.full > out` |
 | urldedupe | `urldedupe < D_unified.full > out` |
 | urless | `urless -nb < D_unified.full > out` (`-i` is inert under a pipe) |
@@ -327,7 +327,7 @@ quality can be recomputed without re-running the tools.
   classifier and ground truth encode the corpus author's judgement about
   what counts as a distinct endpoint. The raw outputs and the labelled
   input are published so that judgement can be re-checked.
-- udud's keep-bias is a default, not a law. This report measures the
+- xcull's keep-bias is a default, not a law. This report measures the
   shipping default, which favors surface retained over a minimal output.
   Teams optimizing purely for output size should measure their preferred
   configuration (`-F` for the most aggressive fold).
@@ -337,7 +337,7 @@ quality can be recomputed without re-running the tools.
 
 ## 9. Recommendation
 
-For a recon deduplication stage, udud is the recommended tool. In one run on
+For a recon deduplication stage, xcull is the recommended tool. In one run on
 the same 780k known-answer input it leads on completion time, on throughput,
 on peak memory, and on false merge rate, including on the object-ID
 endpoints where access-control bugs live. The trade, a larger output than

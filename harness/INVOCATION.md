@@ -7,7 +7,7 @@ flags are passed to any competitor.
 
 | tool | version | command | notes |
 |---|---|---|---|
-| udud | v12 (this repo) | `udud < IN > OUT` | SUT; gcc -O3 -march=native -flto |
+| xcull | v12 (this repo) | `xcull < IN > OUT` | SUT; gcc -O3 -march=native -flto |
 | uro | 1.0.2 (pip) | `uro -i IN > OUT` | `-i` and stdin produce byte-identical output (verified) |
 | urldedupe | 1.0.4 | `urldedupe < IN > OUT` | stdin filter |
 | urless | 2.7 (pip) | `urless -nb < IN > OUT` | see caveat below |

@@ -28,7 +28,7 @@ from urllib.parse import urlparse, parse_qs as _parse_qs
 def parse_qs(q):
     """parse_qs that keeps blank values so /page?file= still has key 'file'.
 
-    Some tools (notably udud) blank a sink param value as part of the
+    Some tools (notably xcull) blank a sink param value as part of the
     signature canonicalisation: the output URL is /page?file= rather
     than /page?file=<payload>. The endpoint+param-name surface is the
     same as the input; the classifier must not lose it."""
@@ -45,7 +45,7 @@ TRUTH = os.path.join(HERE, "..", "data", "D_unified.truth.json")
 # canonical groups, which counted a correct strip as a false merge. This
 # function canonicalizes both the truth groups (at load time) and the
 # tool's output paths (in classify) under the same rule. The accepted index
-# files are the ones udud's own is_index() recognises.
+# files are the ones xcull's own is_index() recognises.
 _INDEX_RE = re.compile(r"/(?:index|default)\.(?:html?|php|aspx?|jsp)$", re.I)
 
 def _canon_path(p):
@@ -91,7 +91,7 @@ def load_truth():
 #
 # The choice is per-class and per-dataset: a /product/<N> path under a
 # content-section parent is a templated listing where folding is correct
-# (NUMERIC_ID stays OUT of enumerable here, matching udud's default-mode
+# (NUMERIC_ID stays OUT of enumerable here, matching xcull's default-mode
 # content-section template). A /order/<uuid> path under no content-section
 # parent IS an enumerable object surface (UUID stays IN). HEX_HASH and
 # JSESSIONID are kept enumerable because the synth corpus uses them as
@@ -296,7 +296,7 @@ def run_tool(tool, input_path, out_dir):
     if os.path.exists(out) and os.path.getsize(out) > 0:
         return out, None
     bin_path = {
-        "udud": "/usr/local/bin/udud",
+        "xcull": "/usr/local/bin/xcull",
         "uro": "uro",
         "urldedupe": "urldedupe",
         "urless": "urless",
@@ -475,7 +475,7 @@ def main():
     input_distinct = count_input_object_values(INPUT)
 
     results = {}
-    for tool in ["udud", "uro", "urldedupe", "urless", "uddup"]:
+    for tool in ["xcull", "uro", "urldedupe", "urless", "uddup"]:
         out_path, _ = run_tool(tool, INPUT, out_dir)
         if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
             print("%s: DNF or empty output" % tool)

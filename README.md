@@ -1,6 +1,6 @@
-# udud benchmark: URL deduplication for recon at scale
+# xcull benchmark: URL deduplication for recon at scale
 
-udud is a security-aware URL canonicalization engine. In a recon pipeline it
+xcull is a security-aware URL canonicalization engine. In a recon pipeline it
 sits at the front of the flow: it takes the raw URLs harvested for every asset
 in scope and reduces them to the working set
 that scanners, fuzzers, and testers actually process. That one stage sets three
@@ -8,14 +8,14 @@ things for the whole program: how many assets a worker can process per hour,
 how much memory each worker costs, and whether a sensitive endpoint survives to
 be tested at all.
 
-This benchmark measures udud against the four deduplicators most teams already
+This benchmark measures xcull against the four deduplicators most teams already
 run (`urldedupe`, `uro`, `urless`, `uddup`) on **one** 780,200-URL labeled
 corpus where the correct answer is known exactly. Every number in this
 report, throughput, peak RAM, completion time, surface retained, and false
 merge rate, is measured on that same input so there is no cross-corpus
 confusion.
 
-Result in one line: udud is first on completion time, first on throughput,
+Result in one line: xcull is first on completion time, first on throughput,
 first on peak RAM, and first on false merge rate in the same run.
 
 ## What this stage has to deliver, in priority order
@@ -23,7 +23,7 @@ first on peak RAM, and first on false merge rate in the same run.
 These are the properties a recon program actually buys when it picks a
 deduplicator, ordered the way a platform owner weighs them.
 
-| # | Property | Why it decides the program | udud on `D_unified.full` |
+| # | Property | Why it decides the program | xcull on `D_unified.full` |
 |---|---|---|---|
 | 1 | Completion time | Wall clock per asset on one core | 1.73 s, fastest measured |
 | 2 | Throughput (URLs/s) | Sets continuous-monitoring capacity per worker | 451,000 URLs/s, fastest measured |
@@ -45,7 +45,7 @@ proving 4 and 5 without giving up 1 through 3.
 Same machine, same input, each tool in its documented default mode, pinned to
 one core, page cache primed, best of five timed trials.
 
-| Metric | udud | urldedupe | uro | urless | uddup |
+| Metric | xcull | urldedupe | uro | urless | uddup |
 |---|---:|---:|---:|---:|---:|
 | Completion time | **1.73 s** | 2.27 s | 7.36 s | 8.83 s | DNF (>600 s) |
 | Throughput | **451 k URLs/s** | 343 k URLs/s | 106 k URLs/s | 88 k URLs/s | DNF |
@@ -56,13 +56,13 @@ one core, page cache primed, best of five timed trials.
 
 How to read it:
 
-- udud is first on completion time, first on throughput, first on peak RAM,
+- xcull is first on completion time, first on throughput, first on peak RAM,
   and first on false merge rate in the same run. The next-fastest finisher
   (`urldedupe`) is 1.31x slower; the next-smallest RAM (`uro`) is 1.22x
   heavier and reaches it by deleting whole endpoint classes.
 - `urldedupe` reaches 0 % false merges only because it barely deduplicates.
   It removes exact byte duplicates and keeps every value, locale, and
-  session-token variant, so it emits 3.3x udud's output and uses 8.6x the
+  session-token variant, so it emits 3.3x xcull's output and uses 8.6x the
   RAM. It cannot drop a real endpoint because it folds almost nothing.
   That is a passthrough, not a deduplicator.
 - `uro` and `urless` produce a short, tidy list by deleting whole endpoint
@@ -82,13 +82,13 @@ fewer endpoints silently removed from scope.
 
 | Tool | Canonical groups | Destroyed | False merge rate | Reads as |
 |---|---:|---:|---:|---|
-| **udud** | 55,920 | 0 | **0.00 %** | preserves 100 % of distinct groups |
+| **xcull** | 55,920 | 0 | **0.00 %** | preserves 100 % of distinct groups |
 | urldedupe | 55,920 | 0 | 0.00 % (passthrough) | keeps 380,650 lines for 55,920 groups, so it folds almost nothing |
 | uro | 55,920 | 1,248 | 2.23 % | destroys every JSESSIONID, every TITLE_SLUG, every UUID class |
 | urless | 55,920 | 1,777 | 3.18 % | destroys every JSESSIONID and every TITLE_SLUG class |
 | uddup | — | — | DNF | quadratic; does not finish 780k URLs |
 
-udud reaches 0 % false merges and a real 85 % reduction at the same time,
+xcull reaches 0 % false merges and a real 85 % reduction at the same time,
 which is the combination the other tools each miss. The per-class detail,
 including which endpoint classes `uro` and `urless` deleted in full, is in
 [`BENCHMARK.md`](BENCHMARK.md) Section 4.2 and the CSV
@@ -99,7 +99,7 @@ including which endpoint classes `uro` and `urless` deleted in full, is in
 - More assets per worker. The fastest completion time and the lowest RAM
   in the same run means a single worker covers more scope per cycle, and
   more workers fit on the same hardware.
-- Fewer missed findings. udud is the only deduplicator that keeps every
+- Fewer missed findings. xcull is the only deduplicator that keeps every
   canonical group, including the object-ID endpoints (`/order/1001`,
   `/order/1002`) where broken-object-level-authorization and IDOR bugs
   live. A lower false merge rate is a direct reduction in endpoints that
@@ -108,9 +108,9 @@ including which endpoint classes `uro` and `urless` deleted in full, is in
   with hundreds of thousands of URLs still finishes in under two seconds,
   where the alternatives either exhaust memory or never return.
 
-## The one trade udud makes on purpose
+## The one trade xcull makes on purpose
 
-udud is keep-biased. When a URL is ambiguous, for example it carries an
+xcull is keep-biased. When a URL is ambiguous, for example it carries an
 object ID, a session token, or an opaque hash, the default keeps it instead
 of folding it away, because that is where access-control bugs hide. The
 cost is a larger output than the most aggressive folders produce. The trade
@@ -125,7 +125,7 @@ is the shipping default, and the per-class data is published unedited under
 - [`BENCHMARK.md`](BENCHMARK.md): the full report. How each tool was run
   and measured, the labelled corpus, per-class quality, the trade-offs
   stated plainly, and the reproduce recipe.
-- [`AUDIT.md`](AUDIT.md): a per-line security audit of udud's most
+- [`AUDIT.md`](AUDIT.md): a per-line security audit of xcull's most
   aggressive id-folding mode. Every removed URL is classified by hand to
   confirm it removed redundancy, not surface. The shipping default removes
   a strict subset of those lines, so the finding carries over.

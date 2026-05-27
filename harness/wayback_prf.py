@@ -34,7 +34,7 @@ DATA = os.path.join(HERE, "..", "data")
 OUT = os.path.join(RAW, "outputs")
 
 CORPORA = ["D_example_wb.full", "D_vulnweb.full", "D_example_gau.full"]
-TOOLS = ["udud", "uro", "urldedupe", "urless", "uddup"]
+TOOLS = ["xcull", "uro", "urldedupe", "urless", "uddup"]
 CLASSES = ["host", "js", "html", "srcdisc", "matrix", "param_ri"]
 
 

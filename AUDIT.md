@@ -1,12 +1,12 @@
-# udud Per-Line Loss Audit (id-folding mode)
+# xcull Per-Line Loss Audit (id-folding mode)
 
 > **Version note (read first).** This audit documents the **id-folding**
-> behavior of udud, the mode that collapses object IDs, hashes, and session
+> behavior of xcull, the mode that collapses object IDs, hashes, and session
 > tokens to one representative. Since **v18** that is the opt-in `-F` mode, not
 > the default. The current **default** configuration (the one the headline
 > benchmark measures) is *keep-biased*: it preserves those IDs and tokens
 > instead of folding them, so it removes a strict subset of the lines audited
-> here. The audit's central finding, that the lines udud removes are redundant
+> here. The audit's central finding, that the lines xcull removes are redundant
 > or noise and not real attack surface, therefore holds for the default at least
 > as strongly (the default removes fewer lines). Specific folding examples below
 > (for example folding `;jsessionid=` tokens) describe `-F`, not the default.
@@ -19,12 +19,12 @@
 > it too.
 
 This is the standalone re-audit record behind the quality discussion in
-BENCHMARK.md. Every URL that udud (id-folding mode) removes and the
+BENCHMARK.md. Every URL that xcull (id-folding mode) removes and the
 canonicalization-invariant metric counts against it is listed here verbatim and
 classified by hand. The purpose is a security judgement, not a line count: for
 each removed line, was a reachable, distinct, attackable endpoint lost.
 
-Source of truth for the raw listings: `raw/audit/D_*.udud.*.lost`
+Source of truth for the raw listings: `raw/audit/D_*.xcull.*.lost`
 (regenerated 2026-05-20). The output of v14, v15, and the current `-F` mode is
 byte-identical on all four corpora (verified by SHA-256 on D_synth.full,
 D_example_wb.full, D_example_gau.full, and D_vulnweb.full), so the audit applies
@@ -54,7 +54,7 @@ Classification key:
 
 ## D_vulnweb.full
 
-### udud host, 8 removed (truth 127, retained 93.701%)
+### xcull host, 8 removed (truth 127, retained 93.701%)
 
 ```
 http://25252fwww.vulnweb.com/robots.txt
@@ -79,12 +79,12 @@ http://www.w3.org/TR/html4/loose.dtd
   NOISE.
 
 Real loss: 0. Note the metric's "truth" for vulnweb host is itself
-polluted by exactly the garbage udud is built to remove. v14 reduced
+polluted by exactly the garbage xcull is built to remove. v14 reduced
 this category from 11 (v13) to 8 by keeping the three wildcard-mirror
 hosts that have deep in-corpus paths (see the html / wildcard residual
 note below).
 
-### udud js, 1 removed (truth 49, retained 97.959%)
+### xcull js, 1 removed (truth 49, retained 97.959%)
 
 ```
 http://rest.vulnweb.com/%5C.js
@@ -93,7 +93,7 @@ http://rest.vulnweb.com/%5C.js
 `%5C` is a backslash; `\.js` is a mangled filename, not a real script.
 NOISE. Real loss: 0.
 
-### udud html, 4 removed (truth 31, retained 87.097%)
+### xcull html, 4 removed (truth 31, retained 87.097%)
 
 ```
 http://testphp.vulnweb.com/id/%251%25/index.html
@@ -159,8 +159,8 @@ authenticated endpoint on the gau corpus (Section 2 of BENCHMARK.md).
 
 ## D_example_gau.full
 
-Every udud retention class on this corpus is 100 percent. The lost
-files in `raw/audit/` for `D_example_gau.full.udud.*` are empty.
+Every xcull retention class on this corpus is 100 percent. The lost
+files in `raw/audit/` for `D_example_gau.full.xcull.*` are empty.
 
 The v14 fix specifically restores the authenticated endpoint
 `https://qeif.tv.example.com/qeif/p1/dc/pqawjqix` (cipher of an
@@ -174,7 +174,7 @@ which is folded into the kept deep-path host signature.
 
 ## D_example_wb.full
 
-### udud host, 5 removed (truth 448, retained 98.884%)
+### xcull host, 5 removed (truth 448, retained 98.884%)
 
 ```
 http://awyxqc-ae-s-xra.tv.example.com/
@@ -201,7 +201,7 @@ http://jxsti.info.example.com/
 
 Real loss: 1 host.
 
-### udud html, 2 removed (truth 1,342, retained 99.851%)
+### xcull html, 2 removed (truth 1,342, retained 99.851%)
 
 ```
 http://sctrt.xect.example.com:80/sctrt/fxas/uk/ztyoerxc/ofts_EN/Eoxbea%20EN%20awyno.html
@@ -209,15 +209,15 @@ http://sctrt.xect.example.com:80/sctrt/qbbwawqiwty_hxaztrx/BQD%20sqmx/index.html
 ```
 
 Legacy promo pages whose filename contains a literal space (`%20`).
-udud's conservative whitespace rejection drops them (`%20` is on the
+xcull's conservative whitespace rejection drops them (`%20` is on the
 path-garbage marker list because in real-world Wayback captures it is
 dominated by scraped article titles). 0.15 percent of html; the
 surrounding promo directory is retained for one of the two. REAL
 (2 pages). Documented residual.
 
-### udud js, 434 against the metric (truth 57,809, retained 99.249%)
+### xcull js, 434 against the metric (truth 57,809, retained 99.249%)
 
-By hand over `raw/audit/D_example_wb.full.udud.js.lost`:
+By hand over `raw/audit/D_example_wb.full.xcull.js.lost`:
 
 - 412 are doubled-locale-prefix asset copies of the form
   `host/{cc}/{cc}/path...js` for `cc` in `{ai, ap, de, es, fc, fe,
@@ -243,7 +243,7 @@ By hand over `raw/audit/D_example_wb.full.udud.js.lost`:
 
 Real js surface destroyed: 0.
 
-### udud matrix, 7 against the metric (truth 23, retained 69.565%)
+### xcull matrix, 7 against the metric (truth 23, retained 69.565%)
 
 ```
 https://atzqix.example.com/cxoteczxo/zoo/atzqitcoilax.css;jsessionid=...
@@ -256,17 +256,17 @@ https://oesstcisctbwax.example.com/RlOesstciSctbwax.do;jsessionid=mlp1YN...
 ```
 
 - Six are static stylesheets on `atzqix.example.com/cxoteczxo/zoo/`;
-  udud folds the session token and keeps the asset endpoint. A session
+  xcull folds the session token and keeps the asset endpoint. A session
   token on a CSS file is not authenticated surface. METRIC (the metric
   requires a literal `;jsessionid=` survivor).
 - `RlOesstciSctbwax.do;jsessionid=`: the first-seen tokenless
-  `RlOesstciSctbwax.do` is retained by udud, so the authenticated
+  `RlOesstciSctbwax.do` is retained by xcull, so the authenticated
   endpoint is represented; the metric scores the token-folded duplicate
   as lost. METRIC.
 
 Real loss: 0. The authenticated endpoint is kept.
 
-### udud param_ri, 16 against the metric (truth 30, retained 46.667%)
+### xcull param_ri, 16 against the metric (truth 30, retained 46.667%)
 
 The removed set, classified:
 
@@ -289,7 +289,7 @@ The removed set, classified:
   plus METRIC (`include=` over-broadly flagged, locale PATH not
   folded by the metric).
 - One `rtpwxicqwaxco.example.com/icqwaxco/ftrx/ozcwsio/dewznbwyj.php?callback=...&q=...`
-  JSONP callback variant of an empty-q endpoint that udud retains
+  JSONP callback variant of an empty-q endpoint that xcull retains
   with a non-empty `q`. FOLD plus METRIC (JSONP `callback=` is not a
   redirect/SSRF/include key in practice; the metric's redirect set
   flags it).
@@ -298,7 +298,7 @@ Real redirect/SSRF/include endpoint destroyed: 0.
 
 ## Verdict
 
-Across 781,398 + 44,943 + 15,185 input URLs, udud v14 destroys zero real
+Across 781,398 + 44,943 + 15,185 input URLs, xcull v14 destroys zero real
 attack surface, with exactly two documented design-boundary residuals,
 both on the Wayback corpus:
 
@@ -313,7 +313,7 @@ both on the Wayback corpus:
 Neither residual is a script source, a source-disclosure artifact, a
 redirect/SSRF/LFI parameter, an authenticated endpoint, or a scanner
 LFI/XXE endpoint. The non-destructive contract holds. Every other line
-the metric scores against udud is correct folding, documented asset
+the metric scores against xcull is correct folding, documented asset
 policy, scanner noise, or documented metric conservatism, and is
 re-checkable from the `raw/audit/` listings.
 

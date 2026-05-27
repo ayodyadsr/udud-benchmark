@@ -1,4 +1,4 @@
-# udud benchmark - experimental environment
+# xcull benchmark - experimental environment
 captured_utc: 2026-05-20T03:15:36Z
 
 ## hardware
@@ -32,12 +32,12 @@ protocol: prime page cache; 1 untimed warm-up; N=10 timed trials per (dataset,to
 per-run wall cap: 300 s (exceed => DNF, monotone skip of larger inputs)
 
 ## tool versions (competitors + SUT)
-udud (SUT):  v14   (source header; single static binary, cc -O3 -march=native -flto, built 2026-05-20)
+xcull (SUT):  v14   (source header; single static binary, cc -O3 -march=native -flto, built 2026-05-20)
 uro:         1.0.2 (pip show uro)
 urldedupe:   1.0.4 (github vovkh/url-dedupe; no --version flag, version pinned by build commit)
 urless:      v2.7  (urless --version)
 uddup:       0.9.3 (pip show uddup)
 
-note: udud has no --version flag by design (zero-config, the version lives only in the
+note: xcull has no --version flag by design (zero-config, the version lives only in the
 source header). The earlier capture lines in this section were probe errors and have been
 replaced with the correct values obtained via pip show / --version / source header.

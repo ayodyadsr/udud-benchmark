@@ -55,7 +55,7 @@ generic sets (a product or brand custom token) is ciphered.
 
 The transform is near-invariant for the decisions a purely structural
 deduplicator makes: same byte-classes, same lengths, same separators,
-same public-suffix and extension structure, same query key set. `udud`
+same public-suffix and extension structure, same query key set. `xcull`
 and `urldedupe` are largely structural, so their per-cell output is
 close to invariant under it. `urldedupe` is the near-invariance anchor
 (it is close to a verbatim passthrough); its output count moves by only
@@ -63,7 +63,7 @@ close to invariant under it. `urldedupe` is the near-invariance anchor
 the residual coming from the whitelist breaking perfect bijectivity at
 the token level.
 
-But `udud`'s noise filters and the keyword blacklists in `uro`, `urless`
+But `xcull`'s noise filters and the keyword blacklists in `uro`, `urless`
 and `uddup` key on literal English tokens. De-identification
 legitimately changes what those filters match. For that reason the
 published artifact is not the original numbers relabelled. The entire

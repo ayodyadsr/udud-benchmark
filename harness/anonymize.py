@@ -11,7 +11,7 @@
 # of well-known structural filenames.
 #
 # Consequence, by construction:
-#  - udud and urldedupe decide purely on structure, so their per-cell
+#  - xcull and urldedupe decide purely on structure, so their per-cell
 #    output is invariant under this permutation (verified empirically by
 #    count equality against the frozen original run).
 #  - uro / urless / uddup key on literal English keywords (e.g. urless's

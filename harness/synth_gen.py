@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Unified labeled corpus generator (D_unified.full, ~780k URLs).
 #
-# This is the single corpus used by both udud and udud-benchmark. It
+# This is the single corpus used by both xcull and xcull-benchmark. It
 # replaces the previous mix of D_synth (45k, controlled) + D_example_wb
 # (781k, real-but-unlabeled) so every metric in every report comes from
 # one input with one ground truth.
@@ -96,14 +96,14 @@ AREAS = [
 # the bulk of input is templated noise (query cache-busts, slug listings)
 # that any reasonable deduper collapses to a small witness set, plus a
 # smaller real attack surface (object enumerations + hand-typed routes)
-# that udud preserves by design. The previous design loaded too much
+# that xcull preserves by design. The previous design loaded too much
 # raw enumeration (UUID/HEX/JSESSIONID at 230k input) which inflated
 # every keep-biased tool's working set artificially; this distribution
-# tracks what we measured on a 781k Wayback capture (udud kept ~129k
+# tracks what we measured on a 781k Wayback capture (xcull kept ~129k
 # canonical entries from 781k input, ~17% retention).
 
 # 1. NUMERIC_ID: /<base>-<n>/<id>, 30 endpoints x 1000 ids = 30k
-#    Real object IDs: udud preserves under keep-bias because /product/1001
+#    Real object IDs: xcull preserves under keep-bias because /product/1001
 #    and /product/1002 may be distinct IDOR/BOLA targets. uro/urless fold.
 NUMERIC_ID_ENDPOINTS = [
     "product", "item", "post", "comment", "order-item", "report",
@@ -146,7 +146,7 @@ for ep in SLUG_ENDPOINTS:
         emit(base("/%s/%s" % (ep, slug)), "TITLE_SLUG", ep)
 
 # 5. CACHE_BUST: /<file>-<n>.js?_=<ts>, 250 files x 1000 ts each = 250k
-#    Heavy query-noise bulk: udud folds the `_` cache-bust per file.
+#    Heavy query-noise bulk: xcull folds the `_` cache-bust per file.
 CACHE_FILES_BASE = ["main", "app", "vendor", "runtime", "polyfill"]
 CACHE_FILES = ["%s-%d.js" % (n, i) for n in CACHE_FILES_BASE for i in range(50)]
 assert len(CACHE_FILES) == 250
